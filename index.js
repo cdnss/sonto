@@ -23,7 +23,7 @@ function rep(str, obj) {
 async function geturl(x){
 
 var html = "";
-  await redaxios( x ).then((response) => {
+  await axios( x ).then((response) => {
   html = response.data;
  })
 return html
