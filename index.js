@@ -1,11 +1,12 @@
 import axiod from "https://deno.land/x/axiod/mod.ts";
 
+
 import express from 'express';
 const app = express ();
 app.use(express.json());
 import * as cheerio from "cheerio"
 import axios from "axios"
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log("Server Listening on PORT:", PORT);
@@ -43,7 +44,7 @@ if( a == "ok"){
     
              } else {
              
-             let qq = $(this).attr(y).replace(url, "http://localhost:3000")
+             let qq = $(this).attr(y).replace(url, z )
              $(this).attr(y , qq )
              
              }
@@ -64,7 +65,7 @@ if( a == "ok"){
     }
   }
     
-function core(){
+function core(x){
 
     $("script[type='application/ld+json'], div[id^='ad'], #judi, #judi2, #disqus_thread, .sidebar, #coloma").remove()
     rex("link", "href", url)
@@ -72,7 +73,7 @@ function core(){
     rex("img", "src" ,url)
     rex("amp-img", "src" ,url)
     rex("iframe", "src" ,url)
-    rex( "a", "href" , "http://localhost:3000","ok")
+    rex( "a", "href" , x ,"ok")
   $(".footercopyright").append(`
   <style>
   #menu,   div.column-three-fourth  { width:100% !important;
@@ -87,18 +88,8 @@ function core(){
 
 app.get("/", async (req, res) => {
     $ = cheerio.load( await geturl( url ) );
-    core()
-    /*
-    $("link").each( function(){
-    
-    if( !$(this).attr("href").startsWith("https:") ){
-    
-    $(this).attr("href" , url+$(this).attr("href") )
-    
-    }
-    
-    })
-    */
+    core(req.protocol+"://"+req.get("host") )
+
 
     try {
       
@@ -117,7 +108,7 @@ app.get('/:key*', async (req, res) => {
    var j = url+"/"+req.params.key+req.params[0]
    
    $ = cheerio.load( await geturl( j ),null, false );
-   core()
+   core(req.protocol+"://"+req.get("host") )
   
   try {
 
