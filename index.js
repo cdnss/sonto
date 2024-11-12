@@ -107,7 +107,7 @@ app.get('/:key*', async (req, res) => {
 
    var j = url+"/"+req.params.key+req.params[0]
    
-   $ = cheerio.load( await geturl( j ),null, false );
+   $ = cheerio.load( await geturl( j ) );
    core(req.protocol+"://"+req.get("host") )
   
   try {
