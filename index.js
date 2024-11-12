@@ -109,12 +109,14 @@ app.get('/:key*', async (req, res) => {
    
    $ = cheerio.load( await geturl( j ) );
    core(req.protocol+"://"+req.get("host") )
-  
-  try {
-
-    res.send( $.html() );
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(req.params);
-  }
+      try {
+      
+      return res.status(200).send(
+         $.html()
+      );
+    } catch (err) {
+      return res.status(500).json({
+        err: err.toString(),
+      });
+      }
 });
