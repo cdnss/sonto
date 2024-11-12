@@ -1,6 +1,6 @@
 import axiod from "https://deno.land/x/axiod/mod.ts";
 
-
+import * as redaxios from "https://deno.land/x/redaxios@0.5.1/mod.ts";
 import express from 'express';
 const app = express ();
 app.use(express.json());
@@ -25,7 +25,7 @@ function rep(str, obj) {
 async function geturl(x){
 
 var html = "";
-  await axiod.get( x ).then((response) => {
+  await redaxios( x ).then((response) => {
   html = response.data;
  })
 return html
