@@ -1,3 +1,4 @@
+import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
 
 import express from 'express';
 const app = express ();
@@ -22,10 +23,12 @@ function rep(str, obj) {
 }
 async function geturl(x){
 
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
 var html = "";
-  await axios( x ).then((response) => {
-  html = response.data;
- })
+  await page.goto(x)
+  html = await page.content();
+ 
 return html
 
 }
