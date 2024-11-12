@@ -7,6 +7,8 @@ import * as cheerio from "cheerio"
 import axios from "redaxios"
 const PORT = 3000;
 
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
 app.listen(PORT, () => {
   console.log("Server Listening on PORT:", PORT);
 });
@@ -23,8 +25,6 @@ function rep(str, obj) {
 }
 async function geturl(x){
 
-const browser = await puppeteer.launch();
-const page = await browser.newPage();
 var html = "";
   await page.goto(x)
   html = await page.content();
