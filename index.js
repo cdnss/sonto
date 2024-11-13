@@ -22,9 +22,8 @@ function rep(str, obj) {
 }
 async function geturl(x){
 
-var html = "";
- var res = await fetch(x)
-  html = await res.text();
+var html = axios.get(url).then((res) => res.text());
+ 
  
 return html
 
