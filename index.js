@@ -1,4 +1,3 @@
-import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
 
 import express from 'express';
 const app = express ();
@@ -7,8 +6,6 @@ import * as cheerio from "cheerio"
 import axios from "redaxios"
 const PORT = 3000;
 
-const browser = await puppeteer.launch();
-const page = await browser.newPage();
 app.listen(PORT, () => {
   console.log("Server Listening on PORT:", PORT);
 });
@@ -26,8 +23,8 @@ function rep(str, obj) {
 async function geturl(x){
 
 var html = "";
-  await page.goto(x)
-  html = await page.content();
+ var res = await fetch(x)
+  html = await res.text();
  
 return html
 
