@@ -22,12 +22,14 @@ function rep(str, obj) {
 }
 async function geturl(x){
 
-var html = axios.get(url).then((res) => res.text());
- 
- 
+var html = "";
+  await axios( x ).then((response) => {
+  html = response.data;
+ })
 return html
 
 }
+
 
 function rex(x,y,z,a){
 
