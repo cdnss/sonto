@@ -25,9 +25,18 @@ function rep(str, obj) {
 async function geturl(x){
 
 var html = "";
-  await axios( x ).then((response) => {
-  html = response.data;
- })
+ humanoid
+    .get(x)
+
+    .then((res) => {
+        // print the result
+        html = res.body 
+    })
+    // catch errors if any
+    .catch((err) => {
+        console.log(err);
+    });
+  
 return html
 
 }
