@@ -1,0 +1,3 @@
+[[edge_functions]]
+function = "inde" # Nama file skrip Anda tanpa ekstensi (.ts atau .js)
+path = "/*"          # Path atau pola path di mana fungsi ini akan berjalan
