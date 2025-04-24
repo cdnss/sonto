@@ -1,14 +1,14 @@
-// Import Node.js built-in modules dan dependency npm
+// Import dependency npm
 // 'node-fetch' diperlukan untuk fungsi fetch di lingkungan Node.js
-import fetch, { RequestInit, Response as FetchResponse } from 'node-fetch';
+import fetch from 'node-fetch';
 import * as cheerio from 'cheerio'; // Cheerio diinstal via npm
 
 // Konfigurasi melalui environment variable
 // Di lingkungan Node.js, environment variables diakses via process.env
-const target: string = process.env.TARGET_URL || "https://ww1.anoboy.app";
+const target = process.env.TARGET_URL || "https://ww1.anoboy.app";
 
 // Header CORS standar
-const corsHeaders: { [key: string]: string } = {
+const corsHeaders = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "Origin, X-Requested-With, Content-Type, Accept",
 };
@@ -17,7 +17,7 @@ const corsHeaders: { [key: string]: string } = {
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  * Di Vercel, headers request sudah diproses oleh Vercel, tapi filter ini bisa tetap relevan.
  */
-function filterRequestHeaders(headers: any): Headers {
+function filterRequestHeaders(headers) {
   const newHeaders = new Headers();
   const forbidden = [
     "host",
@@ -31,9 +31,9 @@ function filterRequestHeaders(headers: any): Headers {
     "x-vercel-ip-latitude",
     "x-vercel-ip-longitude",
     "x-vercel-ip-timezone",
-    "x-vercel-forwarded-for", // Mungkin ini yang relevan
+    "x-vercel-forwarded-for",
     // Header sensitif lainnya
-    "cookie", // Hati-hati, bisa diperlukan untuk stateful session
+    "cookie",
     "authorization",
     // "user-agent", // Biarkan jika ingin meneruskan UA asli
   ];
@@ -50,7 +50,7 @@ function filterRequestHeaders(headers: any): Headers {
       }
   } else {
       // Jika ini adalah instance Headers (kurang umum di req Vercel standar)
-      headers.forEach((value: string, key: string) => {
+      headers.forEach((value, key) => {
            if (!forbidden.includes(key.toLowerCase())) {
               newHeaders.append(key, value);
           } else {
@@ -72,7 +72,7 @@ function filterRequestHeaders(headers: any): Headers {
  * Fungsi transformHTML menerapkan perbaikan SEO.
  * Logika inti Cheerio dan penulisan ulang URL sebagian besar tetap sama.
  */
-function transformHTML(html: string, canonicalUrl: string): string {
+function transformHTML(html, canonicalUrl) {
   console.log(`[INFO] Starting HTML transformation for canonicalUrl: ${canonicalUrl}`);
   // Pastikan canonicalUrl diawali dengan 'https://'
   if (!canonicalUrl.startsWith("https://")) {
@@ -187,7 +187,7 @@ function transformHTML(html: string, canonicalUrl: string): string {
         let json = JSON.parse(jsonContent);
         const originalJsonString = JSON.stringify(json);
 
-        function replaceUrlsInJson(obj: any) {
+        function replaceUrlsInJson(obj) {
           for (const key in obj) {
             if (typeof obj[key] === 'string') {
                try {
@@ -301,8 +301,9 @@ function transformHTML(html: string, canonicalUrl: string): string {
              } catch (e) {
                  console.warn("[WARN] Could not resolve og:image URL for publisher logo:", ogImage, e);
              }
-         }
+             }
      }
+
 
    $("head").append(`<script type="application/ld+json">${JSON.stringify(structuredData, null, 2)}</script>`);
    console.log("[INFO] Added new Article schema.org script by proxy.");
@@ -326,7 +327,7 @@ function transformHTML(html: string, canonicalUrl: string): string {
               try {
                    const url = new URL(originalValue, target);
 
-                   if (targetOrigin && (url.origin === targetOrigin || (url.host.endsWith('.' + new URL(target).hostname) && url.origin.startsWith('http'))) && !originalValue.startsWith('#') && !originalValue.startsWith('mailto:')) {
+                   if (targetOrigin && (url.origin === targetOrigin || (url.host.endsWith('.' + new URL(target).hostname) && url.origin.startsWith('http')))) {
                         url.host = new URL(canonicalUrl).host;
                         url.protocol = 'https';
                         $(el).attr(attr, url.toString());
@@ -371,7 +372,7 @@ function transformHTML(html: string, canonicalUrl: string): string {
  * Handler untuk Vercel Serverless Function.
  * Menerima request dan response object Node.js.
  */
-export default async function handler(req: any, res: any) {
+export default async function handler(req, res) {
   // Di Vercel, host dan URL bisa diambil dari objek request
   const host = req.headers.host;
   // URL request lengkap bisa direkonstruksi
@@ -399,12 +400,12 @@ export default async function handler(req: any, res: any) {
     const filteredHeaders = filterRequestHeaders(req.headers);
 
     // Opsi fetch untuk request target
-    const fetchOptions: RequestInit = {
+    const fetchOptions = {
         method: req.method,
         headers: filteredHeaders,
         // Untuk body request POST/PUT, perlu membaca stream request
         body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined, // req objek adalah stream Readable
-        redirect: 'manual' as RequestInit['redirect'] // Tangani redirect manual
+        redirect: 'manual' // Tangani redirect manual
     };
 
      // Jika body adalah stream, pastikan tidak di set untuk GET/HEAD
@@ -413,14 +414,21 @@ export default async function handler(req: any, res: any) {
      }
 
 
-    const targetResponse: FetchResponse = await fetch(targetUrl.toString(), fetchOptions);
+    const targetResponse = await fetch(targetUrl.toString(), fetchOptions);
 
     console.log(`[INFO] Received response from target: Status ${targetResponse.status}`);
 
 
     // Tangani redirect 3xx jika target merespons dengan redirect
     if (targetResponse.status >= 300 && targetResponse.status < 400 && targetResponse.headers.has('location')) {
-        const location = targetResponse.headers.get('location')!;
+        const location = targetResponse.headers.get('location');
+         if (!location) {
+             console.error("[ERROR] Redirect response missing Location header.");
+              // Fallback ke error 500 jika redirect invalid
+             res.writeHead(500, corsHeaders);
+             res.end("Internal Server Error: Invalid redirect response");
+             return;
+         }
         console.log(`[INFO] Target responded with redirect to: ${location}`);
         try {
             // Resolve location relatif terhadap URL request Vercel (canonicalUrl)
@@ -443,14 +451,7 @@ export default async function handler(req: any, res: any) {
                 ...corsHeaders, // Gabungkan dengan CORS headers
                  'Location': proxiedRedirectUrl,
                  // Salin header lain yang relevan dari targetResponse jika perlu
-                 // Contoh: Cache-Control, Expires, dll.
-                 // Hindari content-encoding, content-length
-                 // for (const [key, value] of targetResponse.headers) {
-                 //     const lowerKey = key.toLowerCase();
-                 //     if (lowerKey !== 'location' && lowerKey !== 'content-encoding' && lowerKey !== 'content-length' && !corsHeaders.hasOwnProperty(lowerKey)) {
-                 //          res.setHeader(key, value);
-                 //     }
-                 // }
+                 // for (const [key, value] of targetResponse.headers) { ... }
             });
             res.end(); // Akhiri response
             return; // Penting untuk menghentikan eksekusi
@@ -473,7 +474,7 @@ export default async function handler(req: any, res: any) {
     console.log(`[INFO] Target response Content-Type: ${contentType}`);
 
     // Salin header dari targetResponse ke Vercel response
-    const responseHeaders: { [key: string]: string } = { ...corsHeaders }; // Mulai dengan CORS
+    const responseHeaders = { ...corsHeaders }; // Mulai dengan CORS
      targetResponse.headers.forEach((value, key) => {
          const lowerKey = key.toLowerCase();
          // Salin semua header kecuali yang dikelola Vercel atau CORS, dan content-specific
