@@ -121,11 +121,11 @@ Deno.serve(async (request: Request) => {
 
             // Panggil transformHTML (SETELAH DIADAPTASI UNTUK DENO)
             // Anda perlu melewatkan target string juga jika transformHTML membutuhkannya
-            // const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin, target);
+            const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin, target);
 
             // Untuk saat ini, gunakan HTML asli jika transformHTML belum diadaptasi
-            console.warn("[WARN] Using original HTML because transformHTML is not adapted for Deno.");
-            const modifiedHtml = htmlContent;
+            //console.warn("[WARN] Using original HTML because transformHTML is not adapted for Deno.");
+            //const modifiedHtml = htmlContent;
 
 
             const responseHeaders = new Headers(corsHeaders);
