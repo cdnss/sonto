@@ -6,7 +6,7 @@ import { filterRequestHeaders, transformHTML } from './main.ts';
 // Konfigurasi target URL dari Environment Variable atau nilai default
 const defaultTarget = Deno.env.get("DEFAULT_TARGET_URL") || "https://www.example.com"; // Ganti dengan target default jika perlu, atau biarkan example.com
 const animeTarget = Deno.env.get("ANIME_TARGET_URL") || "https://ww1.anoboy.app"; // Menggunakan URL yang diminta
-const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://lk21.film/"; // Menggunakan URL yang diminta
+const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://tv4.lk21official.cc"; // Menggunakan URL yang diminta
 
 // Header CORS
 const corsHeaders = new Headers({
