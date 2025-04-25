@@ -1,4 +1,4 @@
-// File: vercel/edge/proxy-seo.ts
+
 // Import fungsi logika dari main.ts
 // Pastikan path import benar relatif terhadap lokasi file handler Edge Function
 import { filterRequestHeaders, transformHTML } from '../main'; // Sesuaikan path jika main.ts di lokasi berbeda
@@ -29,7 +29,10 @@ try {
  */
 export default async function handler(request: Request, context: any): Promise<Response> {
   // Di Edge Function, URL request sudah mencerminkan domain Edge Function
-  const requestUrl = new URL(request.url);
+  const host = request.headers.get('host');
+  const baseUrl = `https://${host}`; // Asumsikan HTTPS di Vercel
+  const requestUrl = new URL(request.url, baseUrl); // Gunakan base URL untuk menyelesaikan request.url
+
   const canonicalUrl = requestUrl.href; // Gunakan URL request sebagai canonical
 
    console.log(`[INFO] Vercel Edge Function received request: ${request.method} ${request.url}`);
