@@ -1,12 +1,12 @@
 // File: server.ts
 
 // Import fungsi dari main.ts
-import { filterRequestHeaders, transformHTML } from './main.ts'; // Path relatif dari server.ts ke main.ts
+import { filterRequestHeaders, transformHTML } from './main.ts';
 
 // Konfigurasi target URL dari Environment Variable atau nilai default
-const defaultTarget = Deno.env.get("DEFAULT_TARGET_URL") || "https://www.example.com"; // Ganti dengan target default jika perlu
+const defaultTarget = Deno.env.get("DEFAULT_TARGET_URL") || "https://www.example.com"; // Ganti dengan target default jika perlu, atau biarkan example.com
 const animeTarget = Deno.env.get("ANIME_TARGET_URL") || "https://ww1.anoboy.app"; // Menggunakan URL yang diminta
-const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://lk21.film/"; // Menggunakan URL yang diminta
+const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://tv4.lk21official.cc"; // Menggunakan URL yang diminta
 
 // Header CORS
 const corsHeaders = new Headers({
@@ -17,7 +17,7 @@ const corsHeaders = new Headers({
 // Handler untuk Deno Deploy (Request Listener)
 Deno.serve(async (request: Request) => {
     const requestUrl = new URL(request.url);
-    const canonicalUrl = requestUrl.href; // request.url di Deno Deploy adalah URL lengkap
+    const canonicalUrl = requestUrl.href;
 
     console.log(`[INFO] Deno Deploy received request: ${request.method} ${requestUrl.pathname}`); // Log path saja
 
@@ -27,11 +27,11 @@ Deno.serve(async (request: Request) => {
         return new Response(null, { headers: corsHeaders });
     }
 
-    let selectedTargetUrl: string; // Menggunakan nama variabel ini untuk konsistensi
+    let selectedTargetUrl: string; // Mengganti nama variabel dari selectedTarget menjadi selectedTargetUrl agar lebih jelas
     let targetPathname: string;
-    let targetType: 'anime' | 'movies' | 'default'; // Variabel untuk tipe target
+    let targetType: 'anime' | 'movies' | 'default'; // Variabel baru untuk tipe target
 
-    // --- Logika Routing Berdasarkan Pathname (if/else if) ---
+    // --- Logika Routing Berdasarkan Pathname ---
     if (requestUrl.pathname === '/') {
         console.log("[INFO] Serving default homepage.");
         // Hasilkan HTML statis untuk halaman default
@@ -94,14 +94,13 @@ Deno.serve(async (request: Request) => {
     } else {
         // Path default atau path lainnya (fallback)
         selectedTargetUrl = defaultTarget;
-        targetType = 'default';
+        targetType = 'default'; // Set tipe target
         targetPathname = requestUrl.pathname; // Gunakan seluruh pathname
         console.log(`[INFO] Routing to DEFAULT target (${selectedTargetUrl}) for path: ${requestUrl.pathname}`);
     }
-    // --- Akhir Logika Routing Berdasarkan Pathname (if/else if) ---
+    // --- Akhir Logika Routing ---
 
-
-    // Jika bukan homepage statis, lanjutkan proses proxying
+    // Jika bukan homepage statis, lanjutkan proses proxying
     try {
         const targetOrigin = new URL(selectedTargetUrl).origin; // Gunakan selectedTargetUrl untuk origin
 
@@ -130,7 +129,7 @@ Deno.serve(async (request: Request) => {
              }
              console.log(`[INFO] Target responded with redirect to: ${location}`);
              try {
-                  // Resolve location relatif terhadap URL target saat ini (targetUrl)
+                  // Resolve location relatif terhadap URL target saat ini
                  const redirectedUrl = new URL(location, targetUrl); // <-- resolve terhadap targetUrl yg sedang di-fetch
                  let proxiedRedirectUrl = redirectedUrl.toString();
                  const currentTargetOrigin = new URL(selectedTargetUrl).origin; // Origin dari target yang redirect
@@ -140,127 +139,113 @@ Deno.serve(async (request: Request) => {
                   // Periksa apakah redirect mengarah ke origin dari target yang sedang diproses atau subdomainnya
                   if (currentTargetOrigin && (redirectedUrl.origin === currentTargetOrigin || (redirectedUrl.host.endsWith('.' + new URL(selectedTargetUrl).hostname) && redirectedUrl.origin.startsWith('http')))) {
 
-                        // Tentukan prefix proxy berdasarkan request URL awal (canonicalUrl)
-                         // Ini agak kurang ideal karena tidak langsung tahu targetType dari sini,
-                         // tapi kita bisa coba ambil dari path awal request.
                         let prefix = '';
-                        if (canonicalUrl.startsWith(canonicalOrigin + '/anime')) {
+                        if (targetType === 'anime') {
                             prefix = '/anime';
-                        } else if (canonicalUrl.startsWith(canonicalOrigin + '/movies')) {
+                        } else if (targetType === 'movies') {
                             prefix = '/movies';
-                        } // Jika tidak cocok, prefix tetap kosong (untuk defaultTarget)
-
-
-                        const targetRedirectPath = redirectedUrl.pathname;
-                        // Gabungkan prefix rute awal dengan path redirect dari target
-                        // Pastikan prefix tidak kosong jika ditambahkan
-                        let newPath = targetRedirectPath;
-                        if (prefix !== '' && prefix !== '/') { // Jangan tambahkan prefix jika prefixnya '/'
-                            newPath = prefix + (targetRedirectPath.startsWith('/') ? targetRedirectPath : '/' + targetRedirectPath);
-                        } else if (prefix === '/' && targetRedirectPath === '/') {
-                              // Jika prefix '/', dan redirect ke root target, path baru tetap '/'
-                                newPath = '/';
-                           } else if (prefix === '/' && targetRedirectPath !== '/') {
-                              // Jika prefix '/', dan redirect ke sub-path target, path baru adalah sub-path target
-                                newPath = targetRedirectPath;
-                           }
+                        }
+                        const targetRedirectPath = redirectedUrl.pathname;
+                        // Gabungkan prefix rute awal dengan path redirect dari target
+                        let newPath = prefix + (targetRedirectPath.startsWith('/') ? targetRedirectPath : '/' + targetRedirectPath);
 
 
                         // Buat URL baru dengan origin proxy dan path yang disesuaikan
-                        proxiedRedirectUrl = new URL(newPath + redirectedUrl.search + redirectedUrl.hash, canonicalUrl).toString(); // <-- resolve terhadap canonicalUrl (origin proxy)
+                        proxiedRedirectUrl = new URL(newPath + redirectedUrl.search + redirectedUrl.hash, canonicalOrigin).toString();
                         proxiedRedirectUrl = proxiedRedirectUrl.replace('http://', 'https://'); // Pastikan HTTPS
-                        console.log(`[INFO] Rewrote redirect URL to proxy host (${new URL(canonicalUrl).origin}) with path adjustment for ${targetType}: ${proxiedRedirectUrl}`); // targetType di sini mungkin kurang akurat, harusnya targetType dari *request* awal.
+                        console.log(`[INFO] Rewrote redirect URL to proxy host (${canonicalOrigin}) with path adjustment for ${targetType}: ${proxiedRedirectUrl}`);
 
-                    } else {
-                        // Jika redirect ke domain lain, biarkan URL-nya apa adanya (kecuali jika relatif)
-                        // Pastikan URL absolut jika awalnya relatif
-                        if (!redirectedUrl.protocol.startsWith('http')) {
-                            // Jika masih relatif (misal /path), buat absolut dengan origin proxy
-                            proxiedRedirectUrl = new URL(location, canonicalUrl).toString(); // <-- resolve terhadap canonicalUrl
-                        } else {
-                            // Jika sudah absolut ke domain lain, gunakan URL asli
-                            proxiedRedirectUrl = location;
-                        }
-                    }
+                 } else {
+                     console.log("[INFO] Redirecting to non-target domain or already relative path, passing through location.");
+                     // Jika redirect ke domain lain, biarkan URL-nya apa adanya (kecuali jika relatif)
+                     // Pastikan URL absolut jika awalnya relatif
+                     if (!redirectedUrl.protocol.startsWith('http')) {
+                        // Jika masih relatif (misal /path), buat absolut dengan origin proxy
+                        proxiedRedirectUrl = new URL(location, canonicalOrigin).toString();
+                     } else {
+                        // Jika sudah absolut ke domain lain, gunakan URL asli
+                        proxiedRedirectUrl = location;
+                     }
+                 }
 
 
-                    const redirectHeaders = new Headers(corsHeaders);
-                    for (const [key, value] of targetResponse.headers) {
-                        if (key.toLowerCase() === 'location') {
+                  const redirectHeaders = new Headers(corsHeaders);
+                  for (const [key, value] of targetResponse.headers) {
+                       if (key.toLowerCase() === 'location') {
                             redirectHeaders.set(key, proxiedRedirectUrl);
-                        } else if (key.toLowerCase() !== "content-encoding" && key.toLowerCase() !== "content-length") {
+                       } else if (key.toLowerCase() !== "content-encoding" && key.toLowerCase() !== "content-length") {
                             redirectHeaders.set(key, value);
-                        }
-                    }
-                    return new Response(null, {
-                        status: targetResponse.status,
-                        statusText: targetResponse.statusText,
-                        headers: redirectHeaders,
-                    });
+                       }
+                  }
+                  return new Response(null, {
+                       status: targetResponse.status,
+                       statusText: targetResponse.statusText,
+                       headers: redirectHeaders,
+                  });
 
-                } catch (e) {
-                    console.error(`[ERROR] Failed to process redirect location (${location}) for ${targetType}:`, e);
-                    // Fallback response redirect jika proses gagal
-                    const responseHeaders = new Headers(corsHeaders);
-                    for (const [key, value] of targetResponse.headers) {
-                        if (key.toLowerCase() !== "content-encoding" && key.toLowerCase() !== "content-length") {
-                            responseHeaders.set(key, value);
-                        }
-                    }
-                    return new Response(targetResponse.body, {
-                        status: targetResponse.status,
-                        statusText: targetResponse.statusText,
-                        headers: responseHeaders,
-                    });
-                }
-            // --- Akhir Logika Redirect ---
-
-
-            const contentType = targetResponse.headers.get("content-type") || "";
-            console.log(`[INFO] Target response Content-Type: ${contentType}`);
-
-            if (contentType.includes("text/html")) {
-                const htmlContent = await targetResponse.text();
-                console.log("[INFO] Processing HTML content.");
-
-                // Panggil transformHTML dan teruskan targetType serta selectedTargetUrl
-                const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin, selectedTargetUrl, targetType);
-
-                const responseHeaders = new Headers(corsHeaders);
-                for (const [key, value] of targetResponse.headers) {
-                    if (key.toLowerCase() !== "content-encoding" && key.toLowerCase() !== "content-length" && key.toLowerCase() !== "content-type") {
+             } catch (e) {
+                  console.error(`[ERROR] Failed to process redirect location (${location}) for ${targetType}:`, e);
+                  // Fallback response redirect jika proses gagal
+                  const responseHeaders = new Headers(corsHeaders);
+                  for (const [key, value] of targetResponse.headers) {
+                     if (key.toLowerCase() !== "content-encoding" && key.toLowerCase() !== "content-length") {
                         responseHeaders.set(key, value);
-                    }
-                }
-                responseHeaders.set("Content-Type", "text/html; charset=utf-8");
-                return new Response(modifiedHtml, {
-                    status: targetResponse.status,
-                    statusText: targetResponse.statusText,
-                    headers: responseHeaders,
-                });
-            } else {
-                // Proxy non-HTML aset
-                console.log("[INFO] Proxying non-HTML content.");
-                const responseHeaders = new Headers(corsHeaders);
-                for (const [key, value] of targetResponse.headers) {
-                    if (key.toLowerCase() === "content-encoding" || key.toLowerCase() === "content-length") {
-                        console.log(`[INFO] Skipping content header: ${key}`);
-                        continue;
-                    }
+                     }
+                  }
+                  return new Response(targetResponse.body, {
+                      status: targetResponse.status,
+                      statusText: targetResponse.statusText,
+                      headers: responseHeaders,
+                  });
+             }
+        }
+        // --- Akhir Logika Redirect ---
+
+
+        const contentType = targetResponse.headers.get("content-type") || "";
+        console.log(`[INFO] Target response Content-Type: ${contentType}`);
+
+        if (contentType.includes("text/html")) {
+            const htmlContent = await targetResponse.text();
+            console.log("[INFO] Processing HTML content.");
+
+            // Panggil transformHTML dan teruskan targetType
+            const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin, selectedTargetUrl, targetType); // <-- TERUSKAN targetType
+
+            const responseHeaders = new Headers(corsHeaders);
+            for (const [key, value] of targetResponse.headers) {
+                if (key.toLowerCase() !== "content-encoding" && key.toLowerCase() !== "content-length" && key.toLowerCase() !== "content-type") {
                     responseHeaders.set(key, value);
                 }
-                return new Response(targetResponse.body, { // Stream body
-                    status: targetResponse.status,
-                    statusText: targetResponse.statusText,
-                    headers: responseHeaders,
-                });
             }
-        } catch (error) {
-            console.error(`[ERROR] Error fetching or processing target ${selectedTargetUrl} for type ${targetType}:`, error);
-            return new Response("Internal Server Error", { status: 500, headers: corsHeaders });
+            responseHeaders.set("Content-Type", "text/html; charset=utf-8");
+            return new Response(modifiedHtml, {
+                status: targetResponse.status,
+                statusText: targetResponse.statusText,
+                headers: responseHeaders,
+            });
+        } else {
+            // Proxy non-HTML aset
+            console.log("[INFO] Proxying non-HTML content.");
+            const responseHeaders = new Headers(corsHeaders);
+            for (const [key, value] of targetResponse.headers) {
+                if (key.toLowerCase() === "content-encoding" || key.toLowerCase() === "content-length") {
+                    console.log(`[INFO] Skipping content header: ${key}`);
+                    continue;
+                }
+                responseHeaders.set(key, value);
+            }
+            return new Response(targetResponse.body, { // Stream body
+                status: targetResponse.status,
+                statusText: targetResponse.statusText,
+                headers: responseHeaders,
+            });
         }
-     // <-- Ini menutup blok `else` besar yang menangani routing non-root
-}); // <-- Ini menutup pemanggilan Deno.serve
+    } catch (error) {
+        console.error(`[ERROR] Error fetching or processing target ${selectedTargetUrl}:`, error);
+        return new Response("Internal Server Error", { status: 500, headers: corsHeaders });
+    }
+});
 
 console.log(`[INFO] Deno server started with routing.`);
 console.log(`[INFO] Root path serves a static homepage.`);
