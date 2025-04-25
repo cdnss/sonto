@@ -1,5 +1,5 @@
 // Import dependency
-import cheerio from 'cheerio';
+import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12";
 /**
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  */
