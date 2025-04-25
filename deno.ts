@@ -20,11 +20,6 @@ const routes = {
         targetType: 'movies' as 'anime' | 'movies' | 'default', // Explicit type assertion
     },
     // Tambahkan rute lain di sini jika ada kategori baru
-    // Contoh:
-    // '/series': {
-    //   targetUrl: Deno.env.get("SERIES_TARGET_URL") || "https://series-site.com",
-    //   targetType: 'series' as 'anime' | 'movies' | 'default',
-    // },
 };
 // --- Akhir Konfigurasi Rute Dinamis ---
 
@@ -293,8 +288,8 @@ Deno.serve(async (request: Request) => {
             console.error(`[ERROR] Error fetching or processing target ${selectedTargetUrl} for type ${targetType}:`, error);
             return new Response("Internal Server Error", { status: 500, headers: corsHeaders });
         }
-    }
-});
+    } // <-- Menutup blok `else` yang menangani routing non-root
+}); // <-- Ini menutup pemanggilan Deno.serve
 
 console.log(`[INFO] Deno server started with dynamic routing.`);
 console.log(`[INFO] Root path serves a static homepage.`);
