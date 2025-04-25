@@ -16,6 +16,6 @@
     "node-fetch": "^1.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.x.x"  // Versi spesifik bisa berbeda tergantung hasil npm/yarn install
+    "@types/node": "^20.x.x"  
   }
 }
