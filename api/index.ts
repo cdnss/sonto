@@ -29,7 +29,7 @@ try {
  */
 export default async function handler(request: Request, context: any): Promise<Response> {
   // Di Edge Function, URL request sudah mencerminkan domain Edge Function
-  const host = request.headers.get('host');
+  const host = request.headers['host'];
   const baseUrl = `https://${host}`; // Asumsikan HTTPS di Vercel
   const requestUrl = new URL(request.url, baseUrl); // Gunakan base URL untuk menyelesaikan request.url
 
