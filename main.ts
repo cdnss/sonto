@@ -4,7 +4,12 @@ import cheerio from 'cheerio';
 /**
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  */
-export function filterRequestHeaders(headers: Headers): Headers {
+// File: main.ts
+
+export function filterRequestHeaders(headers: { [key: string]: string }): Headers {
+// Atau gunakan 'any' jika Anda tidak memakai TypeScript atau ingin lebih fleksibel:
+// export function filterRequestHeaders(headers: any): Headers {
+
   const newHeaders = new Headers();
   const forbidden = [
     "host",
@@ -16,19 +21,26 @@ export function filterRequestHeaders(headers: Headers): Headers {
     "cookie",
     "authorization",
   ];
-  for (const [key, value] of headers) {
+
+  // Iterasi menggunakan Object.entries() karena input adalah objek biasa {}
+  for (const [key, value] of Object.entries(headers)) { // <-- PERUBAHAN DI SINI
     if (!forbidden.includes(key.toLowerCase())) {
       newHeaders.append(key, value);
     } else {
        // console.log(`[INFO] Filtering out header in main.ts: ${key}`);
     }
   }
+
    // Opsional: Atur User-Agent default jika dihapus
    // if (!newHeaders.has('user-agent')) {
-   //    newHeaders.set('user-agent', 'Deno Proxy SEO Bot/1.0');
+   //    newHeaders.set('user-agent', 'Deno Proxy SEO Bot/1.0'); // Ganti 'Deno Proxy SEO Bot' jika tidak relevan
    // }
-  return newHeaders;
+
+  return newHeaders; // Mengembalikan objek Headers baru, OK
 }
+
+// ... Implementasi transformHTML Anda di sini ...
+// Pastikan transformHTML juga diekspor: export function transformHTML(...) { ... }
 
 /**
  * Fungsi transformHTML menerapkan perbaikan SEO.
