@@ -52,7 +52,9 @@ export default async function handler(request: Request, context: any): Promise<R
 
   try {
     // Gunakan fungsi filter headers dari main.ts
-    const filteredHeaders = filterRequestHeaders(request.headers as { [key: string]: string });
+    const filteredHeaders = filterRequestHeaders(request.headers as unknown as { [key: string]: string }); // <-- PERUBAHAN DI SINI
+
+ 
 // Atau jika Anda menggunakan 'any' di parameter filterRequestHeaders:
 // const filteredHeaders = filterRequestHeaders(request.headers as any);
 
