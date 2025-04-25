@@ -50,7 +50,7 @@ export function filterRequestHeaders(headers: { [key: string]: string }): Header
  * @param targetOrigin - Origin dari situs target (contoh: https://ww1.anoboy.app).
  * @returns HTML yang telah dimodifikasi.
  */
-export function transformHTML(html: string, canonicalUrl: string, targetOrigin: string | null): string {
+export function transformHTML(html: string, canonicalUrl: string, targetOrigin: string | null, targetString: string): string {
   console.log(`[INFO] Starting HTML transformation in main.ts for canonicalUrl: ${canonicalUrl}`);
 
   let $;
