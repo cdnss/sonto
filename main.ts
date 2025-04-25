@@ -1,6 +1,5 @@
 // Import dependency
-
-const cheerio = require('cheerio');
+import cheerio from 'cheerio';
 /**
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  */
