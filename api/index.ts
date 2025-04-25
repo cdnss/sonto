@@ -5,7 +5,7 @@ import { filterRequestHeaders, transformHTML } from '../main'; // Sesuaikan path
 
 // Konfigurasi melalui environment variable
 // Di Vercel Edge Functions, environment variables bisa diakses via Deno.env.get()
-const target = env.get("TARGET_URL") || "https://ww1.anoboy.app";
+const target = "https://ww1.anoboy.app";
 
 // Header CORS standar
 const corsHeaders = new Headers({
