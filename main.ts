@@ -65,7 +65,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
 
   // Hapus elemen yang tidak diinginkan
   const unwantedSelectors = [
-    ".ads", ".advertisement", ".banner", "#coloma", ".iklan",
+    ".ads", ".advertisement", ".banner", ".iklan",
     "#ad_box", "#ad_bawah", "#judi", "#judi2",
     'script[src*="ad"], script[src*="analytics"], script[src*="googletagmanager"], script[src*="doubleclick"]',
     
