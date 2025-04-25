@@ -2,10 +2,10 @@
   "type":"module",
   "name": "exp",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start":"node index.js"
+    "start":"node index.ts"
   },
   "author": "",
   "license": "ISC",
@@ -14,7 +14,7 @@
     "axios": "^1.7.7",
     "cheerio": "^1.0.0",
     "express": "^4.21.1",
-    "node-fetch": "^1.0.1",
-    "humanoid-js": "^1.0.1"
+    "node-fetch": "^1.0.1"
+    
   }
 }
