@@ -1,7 +1,7 @@
 // File: vercel/edge/proxy-seo.ts
 // Import fungsi logika dari main.ts
 // Pastikan path import benar relatif terhadap lokasi file handler Edge Function
-import { filterRequestHeaders, transformHTML } from '../../main.ts'; // Sesuaikan path jika main.ts di lokasi berbeda
+import { filterRequestHeaders, transformHTML } from '../main.ts'; // Sesuaikan path jika main.ts di lokasi berbeda
 
 // Konfigurasi melalui environment variable
 // Di Vercel Edge Functions, environment variables bisa diakses via Deno.env.get()
