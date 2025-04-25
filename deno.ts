@@ -290,7 +290,7 @@ Deno.serve(async (request: Request) => {
         
     } // <-- Ini menutup blok `else` besar yang menangani routing non-root
 }
-           }); // <-- Ini menutup pemanggilan Deno.serve
+           }; // <-- Ini menutup pemanggilan Deno.serve
 
 console.log(`[INFO] Deno server started with dynamic routing.`);
 console.log(`[INFO] Root path serves a static homepage.`);
