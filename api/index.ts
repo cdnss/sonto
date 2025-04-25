@@ -52,7 +52,9 @@ export default async function handler(request: Request, context: any): Promise<R
 
   try {
     // Gunakan fungsi filter headers dari main.ts
-    const filteredHeaders = filterRequestHeaders(request.headers);
+    const filteredHeaders = filterRequestHeaders(request.headers as { [key: string]: string });
+// Atau jika Anda menggunakan 'any' di parameter filterRequestHeaders:
+// const filteredHeaders = filterRequestHeaders(request.headers as any);
 
     // Edge Functions memiliki 'fetch' global yang mirip dengan Deno dan Browser
     const targetResponse = await fetch(targetUrl.toString(), {
