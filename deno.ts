@@ -288,8 +288,8 @@ Deno.serve(async (request: Request) => {
             console.error(`[ERROR] Error fetching or processing target ${selectedTargetUrl} for type ${targetType}:`, error);
             return new Response("Internal Server Error", { status: 500, headers: corsHeaders });
         }
-    } // <-- Menutup blok `else` yang menangani routing non-root
-
+    } // <-- Ini menutup blok `else` besar yang menangani routing non-root
+}); // <-- Ini menutup pemanggilan Deno.serve
 
 console.log(`[INFO] Deno server started with dynamic routing.`);
 console.log(`[INFO] Root path serves a static homepage.`);
