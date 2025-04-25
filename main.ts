@@ -5,6 +5,7 @@ import cheerio from 'cheerio';
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  */
 // File: main.ts
+const target = "https://ww1.anoboy.app";
 
 export function filterRequestHeaders(headers: { [key: string]: string }): Headers {
 // Atau gunakan 'any' jika Anda tidak memakai TypeScript atau ingin lebih fleksibel:
