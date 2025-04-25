@@ -2,7 +2,7 @@
 
 // Import fungsi dari main.ts (SETELAH main.ts DIADAPTASI UNTUK DENO)
 import { filterRequestHeaders, transformHTML } from './main.ts'; // Path relatif dari server.ts ke main.ts
-
+ 
 // Konfigurasi target URL dari Environment Variable
 const target = Deno.env.get("TARGET_URL") || "https://ww1.anoboy.app";
 
