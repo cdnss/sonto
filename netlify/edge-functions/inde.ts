@@ -127,7 +127,13 @@ export default async function handler(request: Request, context: any): Promise<R
       const htmlContent = await targetResponse.text();
       console.log("[INFO] Processing HTML content.");
       // Panggil fungsi transformHTML dari main.ts
-      const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin);
+      const modifiedHtml = transformHTML(
+  htmlContent,
+  canonicalUrl,
+  targetOrigin,
+  target,       // selectedTargetUrl, biasanya sama dengan TARGET_URL env
+  "default"     // atau "anime"/"movies" jika ingin routing
+);
       const responseHeaders = new Headers(corsHeaders);
       // Copy relevant headers from target response, excluding content-specific ones
        for (const [key, value] of targetResponse.headers) {
