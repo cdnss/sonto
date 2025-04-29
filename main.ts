@@ -39,20 +39,6 @@ function runIframeManipulation() {
         });
     });
 }
-
-
-// Versi yang lebih sederhana: Langsung asumsikan jQuery ada atau akan dimuat oleh halaman target
-// Jika halaman target TIDAK memuat jQuery, script ini TIDAK akan berjalan.
-// Atau suntikkan tag script jQuery secara eksplisit SEBELUM script ini jika Anda yakin tidak akan konflik.
-
-// Jika Anda ingin menyuntikkan tag <script src="..."> jQuery:
-const jQueryScriptTag = '<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>';
-// Anda bisa menambahkannya sebelum script manipulasi ini, misalnya di head atau body juga.
-// Atau biarkan hanya script manipulasi dan berharap halaman target memuat jQuery.
-// Untuk meniru perilaku awal yang menyuntikkan tag script jQuery di kepala/body:
- $('head').append(jQueryScriptTag); // Atau $('body').append(jQueryScriptTag);
-
-
 `;
     // Masukkan script manipulasi ke dalam tag <script>
     const script = `<script>${scriptContent}</script>`;
@@ -62,9 +48,6 @@ const jQueryScriptTag = '<script src="https://code.jquery.com/jquery-3.6.0.min.j
     // Ini adalah cara yang paling mirip dengan perilaku awal Anda.
     const target = $('body'); // Targetkan body
     if (target.length) {
-        // Suntikkan tag script jQuery library terlebih dahulu
-        const jQueryLibScript = '<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>';
-        target.append(jQueryLibScript); // Tambahkan tag jQuery library
         target.append(script); // Tambahkan script manipulasi Anda
       console.log("[INFO] Added jQuery library and script for iframe path manipulation to <body>.");
     } else {
