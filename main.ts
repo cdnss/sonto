@@ -2,19 +2,24 @@
 // main.ts
 import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12";
 
-
+// --- Fungsi addJQueryIframePathScript menggunakan Plain JavaScript ---
 function addJQueryIframePathScript($: cheerio.CheerioAPI): void {
-    const script = `
-
-<script>
-$(document).ready(function() {
-    $('iframe').each(function() {
-        var src = $(this).attr('src');
+    // Script menggunakan plain JavaScript
+    const scriptContent = `
+document.addEventListener('DOMContentLoaded', function() {
+    const iframes = document.querySelectorAll('iframe');
+    iframes.forEach(function(iframe) {
+        const src = iframe.getAttribute('src'); // Gunakan getAttribute untuk mendapatkan nilai atribut asli
         if (src) {
             try {
-                // Gunakan window.location.href sebagai basis URL proxy saat ini
-                // Ini akan mengganti src asli dengan format proxy
-                $(this).attr('src', '/proxy?type=html&url=' + encodeURIComponent(src)); // Gunakan encodeURIComponent
+                // Resolusi URL relatif terhadap URL halaman proxy saat ini (perilaku seperti script jQuery asli)
+                const resolvedUrl = new URL(src, window.location.href);
+
+                // Buat URL proxy baru
+                const proxiedSrc = '/proxy?type=html&url=' + encodeURIComponent(resolvedUrl.toString());
+
+                // Set atribut src iframe dengan URL proxy yang baru
+                iframe.setAttribute('src', proxiedSrc);
 
             } catch (e) {
                 console.error('Error processing iframe src:', src, e);
@@ -22,17 +27,25 @@ $(document).ready(function() {
         }
     });
 });
-</script>
 `;
-    const target = $('body').length ? $('body') : $('head');
+    // Masukkan script ke dalam tag <script>
+    const script = `<script>${scriptContent}</script>`;
+
+
+    // -- PERUBAHAN DI SINI --
+    // Targetkan elemen body secara langsung
+    const target = $('body'); // <-- Hanya menargetkan body
+    // -- AKHIR PERUBAHAN --
+
     if (target.length) {
       target.append(script);
-      // console.log("[INFO] Added jQuery script for iframe path manipulation."); // Log ini bisa sering muncul
+      console.log("[INFO] Added plain JavaScript script for iframe path manipulation to <body>."); // Log pesan sedikit
     } else {
-      console.warn("[WARN] Could not find <head> or <body> to add jQuery script.");
+      console.warn("[WARN] Could not find <body> to add plain JavaScript script."); // Log pesan sedikit
     }
 }
 
+// ... (fungsi filterRequestHeaders, selector, removeUnwantedElements, addLazyLoading, rewriteUrls, transformHTML tetap sama seperti sebelumnya) ...
 /**
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  */
