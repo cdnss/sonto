@@ -2,48 +2,100 @@
 // main.ts
 import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12";
 
-// --- Fungsi addJQueryIframePathScript menggunakan Plain JavaScript ---
+// --- Fungsi addJQueryIframePathScript menggunakan jQuery ---
 function addJQueryIframePathScript($: cheerio.CheerioAPI): void {
-    // Script menggunakan plain JavaScript
+    // Script menggunakan jQuery
     const scriptContent = `
-document.addEventListener('DOMContentLoaded', function() {
-    const iframes = document.querySelectorAll('iframe');
-    iframes.forEach(function(iframe) {
-        const src = iframe.getAttribute('src'); // Gunakan getAttribute untuk mendapatkan nilai atribut asli
+// Suntikkan library jQuery jika belum ada (opsional, tapi disarankan jika halaman target tidak selalu memuatnya)
+// Perlu diperhatikan: Menyuntikkan library bisa menimbulkan konflik dengan script asli halaman.
+// Ini adalah trade-off menggunakan pendekatan client-side script injection.
+
+if (typeof jQuery == 'undefined') {
+    var script = document.createElement('script');
+    script.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+    script.onload = function() {
+        // Lakukan pekerjaan setelah jQuery dimuat
+        runIframeManipulation();
+    };
+    document.head.appendChild(script);
+} else {
+    // jQuery sudah ada, jalankan langsung
+    runIframeManipulation();
+}
+
+function runIframeManipulation() {
+    $(document).ready(function() {
+        $('iframe').each(function() {
+            var src = $(this).attr('src');
+            if (src) {
+                try {
+                    var resolvedUrl = new URL(src, window.location.href);
+                    var proxiedSrc = '/proxy?type=html&url=' + encodeURIComponent(resolvedUrl.toString());
+                    $(this).attr('src', proxiedSrc);
+                } catch (e) {
+                    console.error('Error processing iframe src:', src, e);
+                }
+            }
+        });
+    });
+}
+
+
+// Versi yang lebih sederhana: Langsung asumsikan jQuery ada atau akan dimuat oleh halaman target
+// Jika halaman target TIDAK memuat jQuery, script ini TIDAK akan berjalan.
+// Atau suntikkan tag script jQuery secara eksplisit SEBELUM script ini jika Anda yakin tidak akan konflik.
+
+// Jika Anda ingin menyuntikkan tag <script src="..."> jQuery:
+const jQueryScriptTag = '<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>';
+// Anda bisa menambahkannya sebelum script manipulasi ini, misalnya di head atau body juga.
+// Atau biarkan hanya script manipulasi dan berharap halaman target memuat jQuery.
+// Untuk meniru perilaku awal yang menyuntikkan tag script jQuery di kepala/body:
+// $('head').append(jQueryScriptTag); // Atau $('body').append(jQueryScriptTag);
+
+
+// Script manipulasi iframe menggunakan jQuery
+/** $(document).ready(function() {
+    $('iframe').each(function() {
+        var src = $(this).attr('src');
         if (src) {
             try {
-                // Resolusi URL relatif terhadap URL halaman proxy saat ini (perilaku seperti script jQuery asli)
-                const resolvedUrl = new URL(src, window.location.href);
+                // Resolusi URL relatif terhadap URL halaman proxy saat ini
+                var resolvedUrl = new URL(src, window.location.href);
 
                 // Buat URL proxy baru
-                const proxiedSrc = '/proxy?type=html&url=' + encodeURIComponent(resolvedUrl.toString());
+                var proxiedSrc = '/proxy?type=html&url=' + encodeURIComponent(resolvedUrl.toString());
 
                 // Set atribut src iframe dengan URL proxy yang baru
-                iframe.setAttribute('src', proxiedSrc);
+                $(this).attr('src', proxiedSrc);
 
             } catch (e) {
                 console.error('Error processing iframe src:', src, e);
             }
         }
     });
-});
+}); **/
 `;
-    // Masukkan script ke dalam tag <script>
+    // Masukkan script manipulasi ke dalam tag <script>
     const script = `<script>${scriptContent}</script>`;
 
 
-    // -- PERUBAHAN DI SINI --
-    // Targetkan elemen body secara langsung
-    const target = $('body'); // <-- Hanya menargetkan body
-    // -- AKHIR PERUBAHAN --
-
+    // Tambahkan tag script library jQuery DAN script manipulasi ke body
+    // Ini adalah cara yang paling mirip dengan perilaku awal Anda.
+    const target = $('body'); // Targetkan body
     if (target.length) {
-      target.append(script);
-      console.log("[INFO] Added plain JavaScript script for iframe path manipulation to <body>."); // Log pesan sedikit
+        // Suntikkan tag script jQuery library terlebih dahulu
+        const jQueryLibScript = '<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>';
+        target.append(jQueryLibScript); // Tambahkan tag jQuery library
+        target.append(script); // Tambahkan script manipulasi Anda
+      console.log("[INFO] Added jQuery library and script for iframe path manipulation to <body>.");
     } else {
-      console.warn("[WARN] Could not find <body> to add plain JavaScript script."); // Log pesan sedikit
+      console.warn("[WARN] Could not find <body> to add jQuery script.");
     }
 }
+
+// ... (fungsi filterRequestHeaders, selector, removeUnwantedElements, addLazyLoading, rewriteUrls, transformHTML tetap sama seperti sebelumnya) ...
+
+
 
 // ... (fungsi filterRequestHeaders, selector, removeUnwantedElements, addLazyLoading, rewriteUrls, transformHTML tetap sama seperti sebelumnya) ...
 /**
