@@ -72,10 +72,10 @@ export function filterRequestHeaders(headers: Headers): Headers { // Ubah tipe i
     "cf-connecting-ip",
     "cf-ipcountry",
     "x-real-ip",
-    "cookie",
+  //  "cookie",
     "authorization",
-    "referer",
-    "user-agent", // Mungkin ingin memfilter ini juga
+   // "referer",
+  //  "user-agent", // Mungkin ingin memfilter ini juga
     "accept-encoding", // Biarkan Deno/browser yang menangani encoding
     "content-length", // Deno akan menghitung ulang
     "transfer-encoding", // Deno akan menangani
