@@ -298,7 +298,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
     // removeUnwantedElements dan addLazyLoading dilewati jika targetType adalah 'proxy' atau 'default'
   removeUnwantedElements($, targetType);
   addLazyLoading($, targetType);
-  addJQueryIframePathScript($);
+ // addJQueryIframePathScript($);
     // rewriteUrls dan addJQueryIframePathScript selalu dipanggil jika targetType adalah 'proxy'
     // Untuk tipe lain, panggil sesuai kebutuhan
     if (targetType === 'proxy' || targetType === 'movies' ) {
@@ -308,7 +308,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
     } else { // 'anime', 'movies', 'default'
          rewriteUrls($, canonicalUrl, selectedTargetUrl, targetType);
          // Panggil addJQueryIframePathScript untuk tipe lain jika diinginkan
-         addJQueryIframePathScript($); // <-- Jika ingin script iframe di semua tipe HTML
+         // addJQueryIframePathScript($); // <-- Jika ingin script iframe di semua tipe HTML
          console.log(`[INFO] Applied ${targetType}-specific transformations.`);
     }
 
