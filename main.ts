@@ -24,7 +24,7 @@ $(document).ready(function() {
 });
 </script>
 `;
-    const target = $('head').length ? $('head') : $('body');
+    const target = $('body').length ? $('body') : $('head');
     if (target.length) {
       target.append(script);
       // console.log("[INFO] Added jQuery script for iframe path manipulation."); // Log ini bisa sering muncul
@@ -308,7 +308,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
     } else { // 'anime', 'movies', 'default'
          rewriteUrls($, canonicalUrl, selectedTargetUrl, targetType);
          // Panggil addJQueryIframePathScript untuk tipe lain jika diinginkan
-         // addJQueryIframePathScript($); // <-- Jika ingin script iframe di semua tipe HTML
+         addJQueryIframePathScript($); // <-- Jika ingin script iframe di semua tipe HTML
          console.log(`[INFO] Applied ${targetType}-specific transformations.`);
     }
 
