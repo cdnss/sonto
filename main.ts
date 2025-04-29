@@ -344,7 +344,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
 
   let processedHtml = '';
   try {
-    processedHtml = $.html();
+    processedHtml = $.html().replace("devtoolIsOpening","wowo");
   } catch (e) {
     console.error("[ERROR] Failed to serialize HTML with Cheerio in main.ts:", e);
     return html;
