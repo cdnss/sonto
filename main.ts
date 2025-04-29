@@ -97,7 +97,7 @@ const commonUnwantedSelectors = [
     'script[src*="ad"], script[src*="analytics"], script[src*="googletagmanager"], script[src*="doubleclick"]',
     'script:contains("adsbygoogle")',
     'div[data-ad-client], div[data-ad-slot]',
-    'script:contains("console.clear()")',
+    'script:contains("clear()")',
 ];
 
 const animeUnwantedSelectors = [
