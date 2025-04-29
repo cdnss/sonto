@@ -1,18 +1,20 @@
 // File: server.ts
 
-// Import fungsi dari main.ts
-import { filterRequestHeaders, transformHTML } from './main.ts'; // Pastikan main.ts ada dan mengekspor fungsi ini
+// Import dependencies
+import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12"; // Import cheerio for /proxy HTML processing
+import { filterRequestHeaders, transformHTML } from './main.ts'; // Import transformation functions
 
 // Konfigurasi target URL dari Environment Variable atau nilai default
-const defaultTarget = Deno.env.get("DEFAULT_TARGET_URL") || "https://www.example.com"; // Ganti dengan target default jika perlu, atau biarkan example.com
-const animeTarget = Deno.env.get("ANIME_TARGET_URL") || "https://ww1.anoboy.app"; // Menggunakan URL yang diminta
-const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://tv4.lk21official.cc"; // Menggunakan URL yang diminta
+// Gunakan URL yang diminta
+const defaultTarget = Deno.env.get("DEFAULT_TARGET_URL") || "https://www.example.com";
+const animeTarget = Deno.env.get("ANIME_TARGET_URL") || "https://ww1.anoboy.app";
+const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://tv4.lk21official.cc";
 
 // Header CORS
 const corsHeaders = new Headers({
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "Origin, X-Requested-With, Content-Type, Accept",
-  "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" // Tambahkan metode yang diizinkan jika diperlukan
+  "access-control-allow-headers": "Origin, X-Requested-With, Content-Type, Accept, Range", // Tambahkan Range jika perlu untuk streaming
+  "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" // Tambahkan metode yang diizinkan
 });
 
 // Handler untuk Deno Deploy (Request Listener)
@@ -25,12 +27,12 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
     // Tangani preflight CORS (OPTIONS)
     if (request.method === "OPTIONS") {
         console.log("[INFO] Handling CORS preflight request.");
-        return new Response(null, { headers: corsHeaders });
+        return new Response(null, { status: 204, headers: corsHeaders }); // 204 No Content for OPTIONS
     }
 
-    let selectedTargetUrl: string | undefined; // Bisa undefined untuk rute statis atau proxy khusus
-    let targetPathname: string = requestUrl.pathname; // Default ke pathname asli
-    let targetType: 'anime' | 'movies' | 'default' | 'proxy' | 'static' = 'default'; // Variabel baru untuk tipe target
+    let selectedTargetUrl: string | undefined;
+    let targetPathname: string = requestUrl.pathname;
+    let targetType: 'anime' | 'movies' | 'default' | 'proxy' | 'static' = 'default';
 
     // --- Logika Routing Berdasarkan Pathname ---
     if (requestUrl.pathname === '/') {
@@ -86,7 +88,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
         targetType = 'proxy'; // Set tipe target
 
         const targetUrlParam = requestUrl.searchParams.get('url');
-        const responseTypeParam = requestUrl.searchParams.get('type'); // Get 'type' parameter
+        const responseTypeParam = requestUrl.searchParams.get('type');
         const returnAsHtml = responseTypeParam === 'html'; // Determine if HTML is requested
 
         if (!targetUrlParam) {            
@@ -110,49 +112,140 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
         }
 
         try {
-            // Filter header dari request asli sebelum dikirim ke target
             const filteredHeaders = filterRequestHeaders(request.headers);
 
-            // Lakukan fetch ke URL target
             const proxyResponse = await fetch(fetchTargetUrl.toString(), {
-                method: request.method, // Gunakan metode dari request asli
-                headers: filteredHeaders, // Gunakan header yang sudah difilter
-                body: request.body, // Teruskan body dari request asli
-                redirect: 'follow' // Ikuti redirect secara otomatis untuk endpoint proxy ini
+                method: request.method,
+                headers: filteredHeaders,
+                body: request.body,
+                redirect: 'manual' // Tangani redirect secara manual di server
             });
 
             console.log(`[INFO] Received response from proxied URL: Status ${proxyResponse.status}`);
 
-            // Baca body respons sebagai teks
-            const content = await proxyResponse.text();
+            // --- Penanganan Redirect untuk /proxy ---
+             if (proxyResponse.status >= 300 && proxyResponse.status < 400 && proxyResponse.headers.has('location')) {
+                 const location = proxyResponse.headers.get('location');
+                 if (location) {
+                      console.log(`[INFO] Proxy target responded with redirect to: ${location}`);
+                      try {
+                          // Resolve URL redirect relatif terhadap URL target yang di-fetch
+                          const redirectedUrl = new URL(location, fetchTargetUrl);
+                          const canonicalOrigin = new URL(canonicalUrl).origin;
 
-            if (returnAsHtml) {
-                console.log(`[INFO] Successfully fetched content from ${targetUrlParam}, returning HTML.`);
-                const responseHeaders = new Headers(corsHeaders);
-                // Preserve original Content-Type if it was HTML, otherwise set to text/html
-                const contentType = proxyResponse.headers.get("content-type") || "text/html";
-                responseHeaders.set("Content-Type", contentType.includes("text/html") ? contentType : "text/html; charset=utf-8");
-                // Remove content-encoding/length as we've already read and potentially modified content
-                responseHeaders.delete("content-encoding");
-                responseHeaders.delete("content-length");
-                // Tambahkan logika hapus header Location untuk /proxy?type=html jika diperlukan,
-                // namun biasanya tidak relevan di sini kecuali target mengembalikan redirect sebagai HTML.
-                // Untuk saat ini, fokus pada rute /anime dan /movies
-                if (responseHeaders.has('location')) {
-                    console.log("[INFO] Removed Location header from /proxy?type=html response.");
-                    responseHeaders.delete('location');
-                }
+                          // Tulis ulang URL redirect agar mengarah kembali ke endpoint /proxy?type=html&url=...
+                          // Pastikan redirect ini hanya dilakukan jika type=html diminta
+                          const proxiedRedirectUrl = returnAsHtml ?
+                            `${canonicalOrigin}/proxy?type=html&url=${encodeURIComponent(redirectedUrl.toString())}` :
+                            redirectedUrl.toString(); // Jika tidak type=html, biarkan redirect asli (setelah resolved)
+
+                          console.log(`[INFO] Rewrote /proxy redirect URL to: ${proxiedRedirectUrl}`);
+
+                          const redirectHeaders = new Headers(corsHeaders);
+                           for (const [key, value] of proxyResponse.headers) {
+                             const lowerKey = key.toLowerCase();
+                             if (lowerKey !== "content-encoding" && lowerKey !== "content-length" && lowerKey !== "location") {
+                                 redirectHeaders.set(key, value);
+                             }
+                           }
+                           if (proxiedRedirectUrl) {
+                                redirectHeaders.set('Location', proxiedRedirectUrl); // Set header Location yang sudah ditulis ulang
+                           }
 
 
-                // For /proxy route returning HTML, we might not need complex transformations
-                // but if transformHTML is generic, we could potentially use it here.
-                // Let's return the raw text content for now, assuming minimal/no transformation needed for /proxy?type=html
-                return new Response(content, {
-                    status: proxyResponse.status,
-                    headers: responseHeaders,
-                });
-            } else {
-                // Bentuk respons JSON (default atau jika type=json)
+                          return new Response(null, { // Respons redirect biasanya tanpa body
+                             status: proxyResponse.status,
+                             statusText: proxyResponse.statusText,
+                             headers: redirectHeaders,
+                          });
+
+                      } catch (e) {
+                         console.error(`[ERROR] Failed to process /proxy redirect location (${location}):`, e);
+                         // Fallback: kembalikan respons redirect asli dengan header aslinya (kecuali Location dihapus di filterRequestHeaders jika perlu)
+                         const responseHeaders = new Headers(corsHeaders);
+                          for (const [key, value] of proxyResponse.headers) {
+                             const lowerKey = key.toLowerCase();
+                             if (lowerKey !== "content-encoding" && lowerKey !== "content-length") {
+                                 // Jangan hapus Location di sini, biarkan yang asli jika proses rewrite gagal
+                                  responseHeaders.set(key, value);
+                             }
+                           }
+                          return new Response(proxyResponse.body, {
+                             status: proxyResponse.status,
+                             statusText: proxyResponse.statusText,
+                             headers: responseHeaders,
+                          });
+                      }
+                 } else {
+                     console.warn("[WARN] /proxy redirect response missing Location header.");
+                      // Kembalikan respons asli jika header Location hilang
+                      const responseHeaders = new Headers(corsHeaders);
+                       for (const [key, value] of proxyResponse.headers) {
+                          const lowerKey = key.toLowerCase();
+                          if (lowerKey !== "content-encoding" && lowerKey !== "content-length") {
+                               responseHeaders.set(key, value);
+                          }
+                        }
+                       return new Response(proxyResponse.body, {
+                          status: proxyResponse.status,
+                          statusText: proxyResponse.statusText,
+                          headers: responseHeaders,
+                       });
+                 }
+             }
+            // --- Akhir Penanganan Redirect untuk /proxy ---
+
+
+            const contentType = proxyResponse.headers.get("content-type") || "";
+            console.log(`[INFO] Proxied response Content-Type: ${contentType}`);
+
+
+            if (returnAsHtml) { // Jika klien meminta HTML (type=html)
+                // Hanya proses sebagai HTML jika Content-Type respons target adalah HTML
+                if (contentType.includes("text/html")) {
+                    const htmlContent = await proxyResponse.text();
+                    console.log("[INFO] Processing proxied HTML content with transformHTML (type='proxy').");
+
+                    // Panggil transformHTML dengan targetType 'proxy'
+                    const modifiedHtml = transformHTML(htmlContent, canonicalUrl, new URL(fetchTargetUrl).origin, fetchTargetUrl.toString(), 'proxy');
+
+                    const responseHeaders = new Headers(corsHeaders);
+                    // Salin header dari respons target, kecuali beberapa
+                    for (const [key, value] of proxyResponse.headers) {
+                        const lowerKey = key.toLowerCase();
+                        // Lewati content-encoding, content-length, content-type, dan location
+                        if (lowerKey !== "content-encoding" && lowerKey !== "content-length" && lowerKey !== "content-type" && lowerKey !== "location") {
+                            responseHeaders.set(key, value);
+                        }
+                    }
+                    responseHeaders.set("Content-Type", "text/html; charset=utf-8"); // Set Content-Type ke HTML
+                    return new Response(modifiedHtml, {
+                        status: proxyResponse.status,
+                        statusText: proxyResponse.statusText,
+                        headers: responseHeaders,
+                    });
+                } else {
+                    // Jika type=html tapi respons target bukan HTML, kembalikan apa adanya (atau error?)
+                    console.warn(`[WARN] Requested type=html for ${targetUrlParam}, but target responded with Content-Type: ${contentType}. Returning raw response.`);
+                     // Salin header dari respons target, kecuali beberapa
+                     const responseHeaders = new Headers(corsHeaders);
+                    for (const [key, value] of proxyResponse.headers) {
+                        const lowerKey = key.toLowerCase();
+                        // Lewati content-encoding, content-length, dan location
+                        if (lowerKey !== "content-encoding" && lowerKey !== "content-length" && lowerKey !== "location") {
+                            responseHeaders.set(key, value);
+                        }
+                    }
+                    return new Response(proxyResponse.body, { // Kembalikan body stream asli
+                        status: proxyResponse.status,
+                        statusText: proxyResponse.statusText,
+                        headers: responseHeaders, // Gunakan header asli (kecuali yang difilter)
+                    });
+                }
+
+            } else { // Jika klien tidak meminta HTML (default: JSON)
+                const content = await proxyResponse.text(); // Baca body sebagai teks untuk dimasukkan ke JSON
+                // Bentuk respons JSON
                 const jsonResponse = { contents: content };
 
                 // Siapkan header untuk respons JSON
@@ -207,6 +300,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
     // --- Akhir Logika Routing ---
 
     // Jika bukan homepage statis atau rute /proxy, lanjutkan proses proxying normal
+    // Blok ini menangani 'anime', 'movies', 'default'
     if (targetType !== 'static' && targetType !== 'proxy') {
         try {
             // Pastikan selectedTargetUrl terdefinisi untuk tipe ini
@@ -219,7 +313,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
 
             // Bentuk URL target untuk fetch
             const targetUrl = new URL(selectedTargetUrl + targetPathname + requestUrl.search);
-            console.log(`[INFO] Fetching target URL: ${targetUrl.toString()}`);
+            console.log(`[INFO] Fetching target URL: ${targetUrl.toString()} for type ${targetType}`);
 
             const filteredHeaders = filterRequestHeaders(request.headers);
 
@@ -230,9 +324,10 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                 redirect: 'manual' // Tetap manual redirect untuk rute ini
             });
 
-            console.log(`[INFO] Received response from target: Status ${targetResponse.status}`);
+            console.log(`[INFO] Received response from target: Status ${targetResponse.status} for type ${targetType}`);
 
-            // --- Logika Penanganan Redirect 3xx ---
+
+            // --- Logika Penanganan Redirect 3xx (untuk anime, movies, default) ---
              if (targetResponse.status >= 300 && targetResponse.status < 400 && targetResponse.headers.has('location')) {
                  const location = targetResponse.headers.get('location');
                  if (!location) {
@@ -247,61 +342,42 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                       // Resolve location relatif terhadap URL target saat ini
                      const redirectedUrl = new URL(location, targetUrl); // <-- resolve terhadap targetUrl yg sedang di-fetch
                      const currentTargetOrigin = new URL(selectedTargetUrl).origin; // Origin dari target yang redirect
+                     const canonicalOrigin = new URL(canonicalUrl).origin;
 
-                     // Logika rewrite URL redirect
-                      const canonicalOrigin = new URL(canonicalUrl).origin;
+
+                      // Logika rewrite URL redirect untuk anime, movies, default
                       // Periksa apakah redirect mengarah ke origin dari target yang sedang diproses atau subdomainnya
-                      // Serta pastikan hanya rewrite jika targetType BUKAN 'movies'
+                      // serta pastikan hanya rewrite jika targetType BUKAN 'movies' (sesuai permintaan sebelumnya)
                       if (targetType !== 'movies' && currentTargetOrigin && (redirectedUrl.origin === currentTargetOrigin || (redirectedUrl.host.endsWith('.' + new URL(selectedTargetUrl).hostname) && redirectedUrl.origin.startsWith('http')))) {
 
-                            let prefix = '';
-                            if (targetType === 'anime') {
-                                prefix = '/anime';
-                            } else if (targetType === 'default') { // Tambahkan 'default' jika perlu rewrite redirect-nya
-                                // prefix tetap kosong atau sesuaikan jika default target butuh prefix
-                                prefix = requestUrl.pathname.split('/')[1]; // Ambil bagian pertama path asli
-                                if (prefix && redirectedUrl.pathname.startsWith('/' + prefix)) {
-                                     // Jika path redirect sudah mengandung prefix, jangan double
-                                     newPath = redirectedUrl.pathname;
-                                } else {
-                                    // Jika tidak, tambahkan prefix
-                                     newPath = '/' + prefix + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
-                                }
-                            } else { // Untuk anime
-                                 prefix = '/anime';
-                                 const targetRedirectPath = redirectedUrl.pathname;
-                              newPath = prefix + (targetRedirectPath.startsWith('/') ? targetRedirectPath : '/' + targetRedirectPath);
+                         let newPath = redirectedUrl.pathname;
+
+                         if (targetType === 'anime') {
+                             // Untuk /anime, tambahkan /anime prefix
+                             newPath = '/anime' + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
+                         } else if (targetType === 'default') {
+                            // Untuk /default, pertahankan path asli atau sesuaikan jika perlu
+                            // Logika ini mungkin perlu disesuaikan lebih lanjut tergantung kebutuhan defaultTarget
+                            // Saat ini biarkan path aslinya saja jika defaultTarget adalah root path
+                            if (new URL(defaultTarget).pathname === '/') {
+                                 newPath = redirectedUrl.pathname; // Jika default target adalah root, gunakan path redirect apa adanya
+                            } else {
+                                 // Jika default target bukan root, mungkin perlu penyesuaian path yang lebih kompleks
+                                 // Untuk saat ini, kita asumsikan redirect ke path relatif terhadap origin target
+                                 // Jadi, gabungkan pathname defaultTarget dengan pathname redirect
+                                 const defaultTargetPathname = new URL(defaultTarget).pathname;
+                                 newPath = (defaultTargetPathname.endsWith('/') ? defaultTargetPathname.slice(0, -1) : defaultTargetPathname) + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
                             }
-
-                            // Gabungkan prefix rute awal dengan path redirect dari target
-                            // Letakkan logika penentuan newPath di dalam if (targetType !== 'movies' ...)
-                             // Sesuaikan penentuan newPath agar hanya berlaku untuk anime dan default (jika perlu)
-                             let newPath = redirectedUrl.pathname;
-                             if (targetType === 'anime') {
-                                 // Untuk /anime, tambahkan /anime prefix
-                                 newPath = '/anime' + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
-                             } else if (targetType === 'default') {
-                                // Untuk /default, pertahankan path asli atau sesuaikan jika perlu
-                                // Logika ini mungkin perlu disesuaikan lebih lanjut tergantung kebutuhan defaultTarget
-                                // Saat ini biarkan path aslinya saja jika defaultTarget bukan root path
-                                if (new URL(defaultTarget).pathname === '/') {
-                                     newPath = redirectedUrl.pathname; // Jika default target adalah root, gunakan path redirect apa adanya
-                                } else {
-                                     // Jika default target bukan root, mungkin perlu penyesuaian path yang lebih kompleks
-                                     // Untuk saat ini, kita asumsikan redirect ke path relatif terhadap origin target
-                                     // Jadi, gabungkan pathname defaultTarget dengan pathname redirect
-                                     const defaultTargetPathname = new URL(defaultTarget).pathname;
-                                     newPath = (defaultTargetPathname.endsWith('/') ? defaultTargetPathname.slice(0, -1) : defaultTargetPathname) + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
-                                }
-                             }
+                         }
+                         // Note: targetType === 'movies' tidak akan masuk blok rewrite ini karena kondisinya
 
 
-                            // Buat URL baru dengan origin proxy dan path yang disesuaikan
-                            proxiedRedirectUrl = new URL(newPath + redirectedUrl.search + redirectedUrl.hash, canonicalOrigin).toString();
-                            proxiedRedirectUrl = proxiedRedirectUrl.replace('http://', 'https://'); // Pastikan HTTPS
-                            console.log(`[INFO] Rewrote redirect URL to proxy host (${canonicalOrigin}) with path adjustment for ${targetType}: ${proxiedRedirectUrl}`);
+                        // Buat URL baru dengan origin proxy dan path yang disesuaikan
+                        proxiedRedirectUrl = new URL(newPath + redirectedUrl.search + redirectedUrl.hash, canonicalOrigin).toString();
+                        proxiedRedirectUrl = proxiedRedirectUrl.replace('http://', 'https://'); // Pastikan HTTPS
+                        console.log(`[INFO] Rewrote redirect URL to proxy host (${canonicalOrigin}) with path adjustment for ${targetType}: ${proxiedRedirectUrl}`);
 
-                     } else if (targetType !== 'movies') {
+                    } else if (targetType !== 'movies') {
                          console.log(`[INFO] Redirecting for ${targetType} to non-target domain or already relative path, passing through location.`);
                          // Jika redirect ke domain lain ATAU targetType BUKAN 'movies', biarkan URL-nya apa adanya (kecuali jika relatif)
                          // Pastikan URL absolut jika awalnya relatif
@@ -314,7 +390,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                          }
                      } else if (targetType === 'movies') {
                          console.log("[INFO] Location header will be removed for /movies redirect response.");
-                         proxiedRedirectUrl = null; // Tetapkan null secara eksplisit agar tidak diset nanti
+                         // proxiedRedirectUrl tetap null
                     }
 
 
@@ -363,24 +439,25 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                       });
                  }
              }
-             // --- Akhir Logika Redirect ---
+             // --- Akhir Logika Penanganan Redirect (untuk anime, movies, default) ---
 
 
             const contentType = targetResponse.headers.get("content-type") || "";
-            console.log(`[INFO] Target response Content-Type: ${contentType}`);
+            console.log(`[INFO] Target response Content-Type: ${contentType} for type ${targetType}`);
+
 
             if (contentType.includes("text/html")) {
                 const htmlContent = await targetResponse.text();
-                console.log("[INFO] Processing HTML content.");
+                console.log(`[INFO] Processing HTML content with transformHTML for ${targetType} target.`);
 
-                // Panggil transformHTML dan teruskan targetType
-                const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin, selectedTargetUrl!, targetType);
+                // Panggil transformHTML dengan targetType yang sudah ditentukan
+                const modifiedHtml = transformHTML(htmlContent, canonicalUrl, targetOrigin, selectedTargetUrl!, targetType); // selectedTargetUrl! is safe here
 
                 const responseHeaders = new Headers(corsHeaders);
                 for (const [key, value] of targetResponse.headers) {
                     const lowerKey = key.toLowerCase();
                     // Skip content-encoding, content-length, content-type (set manually later)
-                    // Serta lewati header Location jika targetType adalah 'movies'
+                    // Serta lewati header Location jika targetType adalah 'movies' (sesuai permintaan sebelumnya)
                     if (lowerKey !== "content-encoding" && lowerKey !== "content-length" && lowerKey !== "content-type") {
                         if (lowerKey === 'location' && targetType === 'movies') {
                             console.log("[INFO] Location header removed for /movies HTML response.");
@@ -397,14 +474,14 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                 });
             } else {
                 // Proxy non-HTML aset
-                console.log("[INFO] Proxying non-HTML content.");
+                console.log(`[INFO] Proxying non-HTML content for ${targetType}.`);
                 const responseHeaders = new Headers(corsHeaders);
                 for (const [key, value] of targetResponse.headers) {
                     const lowerKey = key.toLowerCase();
                     // Skip content-encoding, content-length
                     // Serta lewati header Location jika targetType adalah 'movies'
                     if (lowerKey === "content-encoding" || lowerKey === "content-length") {
-                        console.log(`[INFO] Skipping content header: ${key}`);
+                        // console.log(`[INFO] Skipping content header: ${key}`); // Verbose log
                         continue;
                     }
                     if (lowerKey === 'location' && targetType === 'movies') {
