@@ -50,30 +50,9 @@ const jQueryScriptTag = '<script src="https://code.jquery.com/jquery-3.6.0.min.j
 // Anda bisa menambahkannya sebelum script manipulasi ini, misalnya di head atau body juga.
 // Atau biarkan hanya script manipulasi dan berharap halaman target memuat jQuery.
 // Untuk meniru perilaku awal yang menyuntikkan tag script jQuery di kepala/body:
-// $('head').append(jQueryScriptTag); // Atau $('body').append(jQueryScriptTag);
+ $('head').append(jQueryScriptTag); // Atau $('body').append(jQueryScriptTag);
 
 
-// Script manipulasi iframe menggunakan jQuery
-/** $(document).ready(function() {
-    $('iframe').each(function() {
-        var src = $(this).attr('src');
-        if (src) {
-            try {
-                // Resolusi URL relatif terhadap URL halaman proxy saat ini
-                var resolvedUrl = new URL(src, window.location.href);
-
-                // Buat URL proxy baru
-                var proxiedSrc = '/proxy?type=html&url=' + encodeURIComponent(resolvedUrl.toString());
-
-                // Set atribut src iframe dengan URL proxy yang baru
-                $(this).attr('src', proxiedSrc);
-
-            } catch (e) {
-                console.error('Error processing iframe src:', src, e);
-            }
-        }
-    });
-}); **/
 `;
     // Masukkan script manipulasi ke dalam tag <script>
     const script = `<script>${scriptContent}</script>`;
