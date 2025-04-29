@@ -30,7 +30,7 @@ function runIframeManipulation() {
             if (src) {
                 try {
                     var resolvedUrl = new URL(src, window.location.href);
-                    var proxiedSrc = '/proxy?type=html&url=' + encodeURIComponent(resolvedUrl.toString());
+                    var proxiedSrc = '/proxy?url=' + encodeURIComponent(resolvedUrl.toString()) +'&type=html';
                     $(this).attr('src', proxiedSrc);
                 } catch (e) {
                     console.error('Error processing iframe src:', src, e);
@@ -331,6 +331,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
     // Untuk tipe lain, panggil sesuai kebutuhan
     if (targetType === 'proxy' || targetType === 'movies' ) {
         rewriteUrls($, canonicalUrl, selectedTargetUrl, targetType);
+        removeUnwantedElements($, targetType);
         addJQueryIframePathScript($); // Panggil fungsi khusus iframe di sini
         console.log("[INFO] Applied proxy-specific transformations (rewriteUrls, iframe script).");
     } else { // 'anime', 'movies', 'default'
