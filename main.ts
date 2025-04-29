@@ -301,7 +301,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
 
     // rewriteUrls dan addJQueryIframePathScript selalu dipanggil jika targetType adalah 'proxy'
     // Untuk tipe lain, panggil sesuai kebutuhan
-    if (targetType === 'proxy') {
+    if (targetType === 'proxy' || targetType === 'movies' ) {
         rewriteUrls($, canonicalUrl, selectedTargetUrl, targetType);
         addJQueryIframePathScript($); // Panggil fungsi khusus iframe di sini
         console.log("[INFO] Applied proxy-specific transformations (rewriteUrls, iframe script).");
