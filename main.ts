@@ -24,7 +24,7 @@ $(document).ready(function() {
 });
 </script>
 `;
-    const target = $('head').length ? $('head') : $('body');
+    const target = $('body').length ? $('body') : $('head');
     if (target.length) {
       target.append(script);
       console.log("[INFO] Added jQuery script for iframe path manipulation.");
