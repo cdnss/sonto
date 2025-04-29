@@ -1,6 +1,37 @@
 // Import dependency
 import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12";
 
+
+function addJQueryIframePathScript($: cheerio.CheerioAPI): void {
+    const script = `
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('iframe').each(function() {
+        var src = $(this).attr('src');
+        if (src) {
+            try {
+                var url = new URL(src, window.location.href);
+                var pathnameWithPrefix = url.pathname;
+                 $(this).attr('src', '/proxy?type=html&url='+src);
+
+            } catch (e) {
+                console.error('Error processing iframe src:', src, e);
+            }
+        }
+    });
+});
+</script>
+`;
+    const target = $('head').length ? $('head') : $('body');
+    if (target.length) {
+      target.append(script);
+      console.log("[INFO] Added jQuery script for iframe path manipulation.");
+    } else {
+      console.warn("[WARN] Could not find <head> or <body> to add jQuery script.");
+    }
+}
+
 /**
  * Fungsi untuk menyaring header request agar tidak mengirimkan header sensitif.
  */
