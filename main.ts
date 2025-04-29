@@ -298,7 +298,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
     // removeUnwantedElements dan addLazyLoading dilewati jika targetType adalah 'proxy' atau 'default'
   removeUnwantedElements($, targetType);
   addLazyLoading($, targetType);
-
+  addJQueryIframePathScript($);
     // rewriteUrls dan addJQueryIframePathScript selalu dipanggil jika targetType adalah 'proxy'
     // Untuk tipe lain, panggil sesuai kebutuhan
     if (targetType === 'proxy' || targetType === 'movies' ) {
