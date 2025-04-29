@@ -1,10 +1,11 @@
+// main.ts
 // Import dependency
 import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12";
 
 
 function addJQueryIframePathScript($: cheerio.CheerioAPI): void {
     const script = `
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
 <script>
 $(document).ready(function() {
     $('iframe').each(function() {
@@ -245,7 +246,7 @@ export function transformHTML(html: string, canonicalUrl: string, targetOrigin: 
   removeUnwantedElements($, targetType);
   addLazyLoading($);
   rewriteUrls($, canonicalUrl, selectedTargetUrl, targetType);
-
+  addJQueryIframePathScript($);
   let processedHtml = '';
   try {
     processedHtml = $.html();
