@@ -86,8 +86,10 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
         targetType = 'proxy'; // Set tipe target
 
         const targetUrlParam = requestUrl.searchParams.get('url');
+        const responseTypeParam = requestUrl.searchParams.get('type'); // Get 'type' parameter
+        const returnAsHtml = responseTypeParam === 'html'; // Determine if HTML is requested
 
-        if (!targetUrlParam) {
+        if (!targetUrlParam) {            
             console.log("[WARN] /proxy request missing 'url' parameter.");
             const errorResponse = { error: "Missing 'url' query parameter." };
             const responseHeaders = new Headers(corsHeaders);
@@ -124,20 +126,39 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
             // Baca body respons sebagai teks
             const content = await proxyResponse.text();
 
-            // Bentuk respons JSON
-            const jsonResponse = { contents: content };
+            if (returnAsHtml) {
+                console.log(`[INFO] Successfully fetched content from ${targetUrlParam}, returning HTML.`);
+                const responseHeaders = new Headers(corsHeaders);
+                // Preserve original Content-Type if it was HTML, otherwise set to text/html
+                const contentType = proxyResponse.headers.get("content-type") || "text/html";
+                responseHeaders.set("Content-Type", contentType.includes("text/html") ? contentType : "text/html; charset=utf-8");
+                // Remove content-encoding/length as we've already read and potentially modified content
+                responseHeaders.delete("content-encoding");
+                responseHeaders.delete("content-length");
 
-            // Siapkan header untuk respons JSON
-            const responseHeaders = new Headers(corsHeaders);
-            responseHeaders.set("Content-Type", "application/json");
+                // For /proxy route returning HTML, we might not need complex transformations
+                // but if transformHTML is generic, we could potentially use it here.
+                // Let's return the raw text content for now, assuming minimal/no transformation needed for /proxy?type=html
+                return new Response(content, {
+                    status: proxyResponse.status,
+                    headers: responseHeaders,
+                });
+            } else {
+                // Bentuk respons JSON (default atau jika type=json)
+                const jsonResponse = { contents: content };
 
-            console.log(`[INFO] Successfully fetched content from ${targetUrlParam}, returning JSON.`);
+                // Siapkan header untuk respons JSON
+                const responseHeaders = new Headers(corsHeaders);
+                responseHeaders.set("Content-Type", "application/json");
 
-            // Kembalikan respons JSON
-            return new Response(JSON.stringify(jsonResponse), {
-                status: 200, // Status 200 OK jika fetch berhasil
-                headers: responseHeaders,
-            });
+                console.log(`[INFO] Successfully fetched content from ${targetUrlParam}, returning JSON.`);
+
+                // Kembalikan respons JSON
+                return new Response(JSON.stringify(jsonResponse), {
+                    status: 200, // Status 200 OK jika fetch berhasil
+                    headers: responseHeaders,
+                });
+            }
 
         } catch (error) {
             console.error(`[ERROR] Failed to fetch URL ${targetUrlParam}:`, error);
