@@ -1,7 +1,7 @@
 // File: server.ts
 
 // Import dependencies
-import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12"; // Import cheerio for /proxy HTML processing
+import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12"; // Import cheerio for HTML processing
 import { filterRequestHeaders, transformHTML } from './main.ts'; // Import transformation functions
 
 // Konfigurasi target URL dari Environment Variable atau nilai default
@@ -13,7 +13,7 @@ const moviesTarget = Deno.env.get("MOVIES_TARGET_URL") || "https://tv4.lk21offic
 // Header CORS
 const corsHeaders = new Headers({
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "Origin, X-Requested-With, Content-Type, Accept, Range", // Tambahkan Range jika perlu untuk streaming
+  "access-control-allow-headers": "Origin, X-Requested-With, Content-Type, Accept, Range, Authorization", // Tambahkan Authorization jika mungkin diperlukan oleh klien ke proxy
   "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS" // Tambahkan metode yang diizinkan
 });
 
@@ -22,22 +22,18 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
     const requestUrl = new URL(request.url);
     const canonicalUrl = requestUrl.href; // URL proxy Anda sendiri
 
-    // --- Log permintaan POST ke api.php untuk debugging 403 ---
+    console.log(`[INFO] Deno Deploy received request: ${request.method} ${requestUrl.pathname}`);
+
+    // --- Log permintaan POST untuk debugging (opsional, bisa dihapus nanti) ---
     if (request.method === 'POST' && requestUrl.pathname.includes('api.php')) {
         console.log(`[DEBUG] Handling POST request to potential API endpoint: ${requestUrl.pathname}${requestUrl.search}`);
-
         console.log("[DEBUG] Original Request Headers:");
         for (const [key, value] of request.headers) {
             console.log(`[DEBUG]   ${key}: ${value}`);
         }
-
-        // Cek status body (hati-hati, membaca body di sini akan mengkonsumsinya)
-        // Biarkan kode fetch yang membaca body. Cukup cek keberadaannya jika perlu.
-         console.log(`[DEBUG] Request body exists: ${request.body !== null}`); // Ini bisa mengkonsumsi body sebelum fetch
-
-        // Log header setelah difilter akan dilakukan di dalam blok proxy atau blok rute lainnya
     }
     // --- Akhir Log Debugging ---
+
 
     // Tangani preflight CORS (OPTIONS)
     if (request.method === "OPTIONS") {
@@ -104,9 +100,9 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
 
         const targetUrlParam = requestUrl.searchParams.get('url');
         const responseTypeParam = requestUrl.searchParams.get('type');
-        const returnAsHtml = responseTypeParam === 'html'; // Determine if HTML is requested
+        const returnAsHtml = responseTypeParam === 'html';
 
-        if (!targetUrlParam) {            
+        if (!targetUrlParam) {
             console.log("[WARN] /proxy request missing 'url' parameter.");
             const errorResponse = { error: "Missing 'url' query parameter." };
             const responseHeaders = new Headers(corsHeaders);
@@ -129,11 +125,34 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
         try {
             const filteredHeaders = filterRequestHeaders(request.headers);
 
+            // --- Setel Origin dan Referer ke domain target UNTUK RUTE /proxy ---
+            try {
+                const targetOrigin = fetchTargetUrl.origin;
+                 // Pastikan header Origin/Referer asli dihapus sebelum diset nilai spoofing
+                 filteredHeaders.delete('Origin');
+                 filteredHeaders.delete('Referer');
+                 filteredHeaders.set('Origin', targetOrigin);
+                 filteredHeaders.set('Referer', fetchTargetUrl.toString());
+                 console.log(`[INFO] Spoofing Origin for /proxy: ${targetOrigin}`);
+                 console.log(`[INFO] Spoofing Referer for /proxy: ${fetchTargetUrl.toString()}`);
+
+            } catch (e) {
+                console.warn(`[WARN] Failed to set Origin/Referer headers for /proxy ${fetchTargetUrl.toString()}:`, e);
+            }
+            // --- AKHIR Setel Origin dan Referer untuk /proxy ---
+
+
+            console.log(`[INFO] Headers being sent to target (${fetchTargetUrl.toString()}):`);
+            for (const [key, value] of filteredHeaders) {
+                console.log(`[INFO]   ${key}: ${value}`);
+            }
+
+
             const proxyResponse = await fetch(fetchTargetUrl.toString(), {
                 method: request.method,
                 headers: filteredHeaders,
                 body: request.body,
-                redirect: 'manual' // Tangani redirect secara manual di server
+                redirect: 'manual'
             });
 
             console.log(`[INFO] Received response from proxied URL: Status ${proxyResponse.status}`);
@@ -168,7 +187,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                            }
 
 
-                          return new Response(null, { // Respons redirect biasanya tanpa body
+                          return new Response(null, {
                              status: proxyResponse.status,
                              statusText: proxyResponse.statusText,
                              headers: redirectHeaders,
@@ -279,6 +298,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                 // Kembalikan respons JSON
                 return new Response(JSON.stringify(jsonResponse), {
                     status: 200, // Status 200 OK jika fetch berhasil
+                    statusText: proxyResponse.statusText,
                     headers: responseHeaders,
                 });
             }
@@ -291,25 +311,25 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
             return new Response(JSON.stringify(errorResponse), { status: 500, headers: responseHeaders });
         }
 
+
     } else if (requestUrl.pathname.startsWith('/anime')) {
         selectedTargetUrl = animeTarget;
-        targetType = 'anime'; // Set tipe target
+        targetType = 'anime';
         const targetPathnameRaw = requestUrl.pathname.substring('/anime'.length);
-        targetPathname = targetPathnameRaw === '' ? '/' : targetPathnameRaw; // Jika sisa path kosong, jadikan '/'
+        targetPathname = targetPathnameRaw === '' ? '/' : targetPathnameRaw;
         console.log(`[INFO] Routing to ANIME target (${selectedTargetUrl}) for path: ${requestUrl.pathname}`);
 
     } else if (requestUrl.pathname.startsWith('/movies')) {
         selectedTargetUrl = moviesTarget;
-        targetType = 'movies'; // Set tipe target
+        targetType = 'movies';
         const targetPathnameRaw = requestUrl.pathname.substring('/movies'.length);
-        targetPathname = targetPathnameRaw === '' ? '/' : targetPathnameRaw; // Jika sisa path kosong, jadikan '/'
+        targetPathname = targetPathnameRaw === '' ? '/' : targetPathnameRaw;
         console.log(`[INFO] Routing to MOVIES target (${selectedTargetUrl}) for path: ${requestUrl.pathname}`);
 
     } else {
-        // Path default atau path lainnya (fallback)
         selectedTargetUrl = defaultTarget;
-        targetType = 'default'; // Set tipe target
-        targetPathname = requestUrl.pathname; // Gunakan seluruh pathname
+        targetType = 'default';
+        targetPathname = requestUrl.pathname;
         console.log(`[INFO] Routing to DEFAULT target (${selectedTargetUrl}) for path: ${requestUrl.pathname}`);
     }
     // --- Akhir Logika Routing ---
@@ -318,7 +338,6 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
     // Blok ini menangani 'anime', 'movies', 'default'
     if (targetType !== 'static' && targetType !== 'proxy') {
         try {
-            // Pastikan selectedTargetUrl terdefinisi untuk tipe ini
             if (!selectedTargetUrl) {
                 console.error("[ERROR] selectedTargetUrl is undefined for non-static/proxy type.");
                 return new Response("Internal Server Error", { status: 500, headers: corsHeaders });
@@ -332,11 +351,35 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
 
             const filteredHeaders = filterRequestHeaders(request.headers);
 
+            // --- Setel Origin dan Referer ke domain target UNTUK RUTE LAIN ---
+            try {
+                 const currentTargetOrigin = new URL(selectedTargetUrl).origin;
+                 // Pastikan header Origin/Referer asli dihapus sebelum diset nilai spoofing
+                 filteredHeaders.delete('Origin');
+                 filteredHeaders.delete('Referer');
+                 filteredHeaders.set('Origin', currentTargetOrigin);
+                 filteredHeaders.set('Referer', targetUrl.toString()); // Set Referer ke URL target yang di-fetch
+                 console.log(`[INFO] Spoofing Origin for ${targetType}: ${currentTargetOrigin}`);
+                 console.log(`[INFO] Spoofing Referer for ${targetType}: ${targetUrl.toString()}`);
+
+            } catch (e) {
+                 console.warn(`[WARN] Failed to set Origin/Referer headers for ${targetType} ${targetUrl.toString()}:`, e);
+                 // Lanjutkan tanpa set header jika ada error
+            }
+            // --- AKHIR Setel Origin dan Referer untuk RUTE LAIN ---
+
+
+            console.log(`[INFO] Headers being sent to target (${targetUrl.toString()}):`);
+            for (const [key, value] of filteredHeaders) {
+                console.log(`[INFO]   ${key}: ${value}`);
+            }
+
+
             const targetResponse = await fetch(targetUrl.toString(), {
                 method: request.method,
                 headers: filteredHeaders,
                 body: request.body,
-                redirect: 'manual' // Tetap manual redirect untuk rute ini
+                redirect: 'manual'
             });
 
             console.log(`[INFO] Received response from target: Status ${targetResponse.status} for type ${targetType}`);
@@ -351,12 +394,12 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                      return new Response("Internal Server Error: Invalid redirect response", { status: 500, headers: errorHeaders });
                  }
                  console.log(`[INFO] Target responded with redirect to: ${location}`);
-                 let proxiedRedirectUrl: string | null = null; // Ubah inisialisasi menjadi null
+                 let proxiedRedirectUrl: string | null = null;
 
                  try {
                       // Resolve location relatif terhadap URL target saat ini
                      const redirectedUrl = new URL(location, targetUrl); // <-- resolve terhadap targetUrl yg sedang di-fetch
-                     const currentTargetOrigin = new URL(selectedTargetUrl).origin; // Origin dari target yang redirect
+                     const currentTargetOrigin = new URL(selectedTargetUrl).origin;
                      const canonicalOrigin = new URL(canonicalUrl).origin;
 
 
@@ -368,18 +411,11 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                          let newPath = redirectedUrl.pathname;
 
                          if (targetType === 'anime') {
-                             // Untuk /anime, tambahkan /anime prefix
                              newPath = '/anime' + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
                          } else if (targetType === 'default') {
-                            // Untuk /default, pertahankan path asli atau sesuaikan jika perlu
-                            // Logika ini mungkin perlu disesuaikan lebih lanjut tergantung kebutuhan defaultTarget
-                            // Saat ini biarkan path aslinya saja jika defaultTarget adalah root path
-                            if (new URL(defaultTarget).pathname === '/') {
-                                 newPath = redirectedUrl.pathname; // Jika default target adalah root, gunakan path redirect apa adanya
+                             if (new URL(defaultTarget).pathname === '/') {
+                                 newPath = redirectedUrl.pathname;
                             } else {
-                                 // Jika default target bukan root, mungkin perlu penyesuaian path yang lebih kompleks
-                                 // Untuk saat ini, kita asumsikan redirect ke path relatif terhadap origin target
-                                 // Jadi, gabungkan pathname defaultTarget dengan pathname redirect
                                  const defaultTargetPathname = new URL(defaultTarget).pathname;
                                  newPath = (defaultTargetPathname.endsWith('/') ? defaultTargetPathname.slice(0, -1) : defaultTargetPathname) + (redirectedUrl.pathname.startsWith('/') ? redirectedUrl.pathname : '/' + redirectedUrl.pathname);
                             }
@@ -442,12 +478,12 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                          if (lowerKey !== "content-encoding" && lowerKey !== "content-length") {
                              if (lowerKey === 'location' && targetType === 'movies') {
                                 console.log("[INFO] Location header removed for /movies redirect fallback.");
-                                continue; // Skip setting this header
+                                continue;
                              }
                             responseHeaders.set(key, value);
                          }
                       }
-                      return new Response(targetResponse.body, { // Note: Redirects usually shouldn't have body
+                      return new Response(targetResponse.body, {
                           status: targetResponse.status,
                           statusText: targetResponse.statusText,
                           headers: responseHeaders,
@@ -476,7 +512,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
                     if (lowerKey !== "content-encoding" && lowerKey !== "content-length" && lowerKey !== "content-type") {
                         if (lowerKey === 'location' && targetType === 'movies') {
                             console.log("[INFO] Location header removed for /movies HTML response.");
-                            continue; // Lewati header ini
+                            continue;
                         }
                         responseHeaders.set(key, value);
                     }
