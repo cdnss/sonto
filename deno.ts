@@ -33,7 +33,7 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
 
         // Cek status body (hati-hati, membaca body di sini akan mengkonsumsinya)
         // Biarkan kode fetch yang membaca body. Cukup cek keberadaannya jika perlu.
-        // console.log(`[DEBUG] Request body exists: ${request.body !== null}`); // Ini bisa mengkonsumsi body sebelum fetch
+         console.log(`[DEBUG] Request body exists: ${request.body !== null}`); // Ini bisa mengkonsumsi body sebelum fetch
 
         // Log header setelah difilter akan dilakukan di dalam blok proxy atau blok rute lainnya
     }
