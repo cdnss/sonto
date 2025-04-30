@@ -22,7 +22,22 @@ Deno.serve({ port: 8080 }, async (request: Request) => {
     const requestUrl = new URL(request.url);
     const canonicalUrl = requestUrl.href; // URL proxy Anda sendiri
 
-    console.log(`[INFO] Deno Deploy received request: ${request.method} ${requestUrl.pathname}`); // Log path saja
+    // --- Log permintaan POST ke api.php untuk debugging 403 ---
+    if (request.method === 'POST' && requestUrl.pathname.includes('api.php')) {
+        console.log(`[DEBUG] Handling POST request to potential API endpoint: ${requestUrl.pathname}${requestUrl.search}`);
+
+        console.log("[DEBUG] Original Request Headers:");
+        for (const [key, value] of request.headers) {
+            console.log(`[DEBUG]   ${key}: ${value}`);
+        }
+
+        // Cek status body (hati-hati, membaca body di sini akan mengkonsumsinya)
+        // Biarkan kode fetch yang membaca body. Cukup cek keberadaannya jika perlu.
+        // console.log(`[DEBUG] Request body exists: ${request.body !== null}`); // Ini bisa mengkonsumsi body sebelum fetch
+
+        // Log header setelah difilter akan dilakukan di dalam blok proxy atau blok rute lainnya
+    }
+    // --- Akhir Log Debugging ---
 
     // Tangani preflight CORS (OPTIONS)
     if (request.method === "OPTIONS") {
