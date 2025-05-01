@@ -105,12 +105,12 @@ function runIframeManipulation() {
                         if (videoId) {
                             // Buat URL API menggunakan id yang didapat
                             // Menggunakan '?id=' sesuai standar parameter URL
-                            var apiUrl = 'https://cors.ctrlc.workers.dev/api.php?id=' + videoId;
+                            var apiUrl = 'https://anoboy.deno.dev/' + videoId;
 
                             // Lakukan panggilan AJAX ke API
                             $.ajax({
                                 url: apiUrl,
-                                method: 'POST', // Biasanya API seperti ini menggunakan method GET
+                                method: 'GET', // Biasanya API seperti ini menggunakan method GET
                                 dataType: 'json', // Harapkan respons dalam format JSON
                                 success: function(response) {
                                     // Periksa apakah panggilan berhasil dan data tersedia
