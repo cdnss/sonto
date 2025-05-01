@@ -1,4 +1,4 @@
-// script_proxy_unified.ts
+// script_proxy_iframe.ts
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
 
@@ -29,11 +29,12 @@ const homeHtml = `
         <div class="p-5 mb-4 bg-light rounded-3">
             <div class="container-fluid py-5">
                 <h1 class="display-5 fw-bold text-center">Selamat Datang di CORS Proxy</h1>
-                <p class="col-md-8 fs-4 mx-auto text-center">Script Deno sederhana untuk mengatasi masalah CORS dan mengubah link internal.</p>
+                <p class="col-md-8 fs-4 mx-auto text-center">Script Deno sederhana untuk mengatasi masalah CORS, mengubah link internal, dan memanipulasi iframe.</p>
                 
                 <div class="text-center link-section mt-4">
                     <h2>Proxy Routes:</h2>
                     <p>Akses path proxy diikuti dengan path dan query dari situs target.</p>
+                    <p class="text-danger"><small>Catatan: Proxy /movie menyuntikkan script tambahan untuk memanipulasi iframe.</small></p>
                     
                     <a href="/movie/" class="btn btn-primary btn-lg">Akses Proxy LK21 (/movie)</a>
                     <p class="mt-2">Contoh: <code>/movie/?action=view</code> akan mem-proxy <code>https://tv4.lk21official.cc/?action=view</code></p>
@@ -56,10 +57,103 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+// Script JavaScript yang akan disuntikkan untuk memanipulasi iframe
+// Menggunakan backticks (`) untuk memudahkan penulisan multi-line
+const iframeManipulationScript = `
+(function() { // Gunakan IIFE (Immediately Invoked Function Expression) agar variabel tidak bocor
+    console.log("Menjalankan script manipulasi iframe proxy...");
+
+    // Definisi fungsi runIframeManipulation seperti yang diberikan
+    function runIframeManipulation() {
+        $(document).ready(function() {
+            console.log("jQuery ready. Memproses iframes...");
+            $('iframe').each(function() {
+                var $iframe = $(this);
+                var src = $iframe.attr('src');
+
+                if (src) {
+                    try {
+                        // Objek URL dari src asli iframe relative to current proxy page
+                        var originalUrlObj = new URL(src, window.location.href);
+
+                        // Default pathAndQuery menggunakan path dan query dari src asli
+                        var pathAndQuery = originalUrlObj.pathname + originalUrlObj.search;
+
+                        // Periksa apakah ada parameter query 'url'
+                        var innerUrlParam = originalUrlObj.searchParams.get('url');
+
+                        if (innerUrlParam) {
+                            try {
+                                // Decode nilai parameter 'url'
+                                var decodedInnerUrl = decodeURIComponent(innerUrlParam);
+                                // Coba parsing URL yang sudah di-decode
+                                // Gunakan null sebagai base URL karena decodedInnerUrl diharapkan sudah absolute
+                                var innerUrlObj = new URL(decodedInnerUrl);
+
+                                // Jika berhasil, gunakan path dan query dari URL dalam parameter
+                                pathAndQuery = innerUrlObj.pathname + innerUrlObj.search;
+
+                                console.log('Menggunakan URL dari parameter "url":', decodedInnerUrl);
+
+                            } catch (innerUrlError) {
+                                console.error('Gagal parsing URL dalam parameter "url" ("' + innerUrlParam + '"):', innerUrlError);
+                                // Jika decoding/parsing gagal, pathAndQuery tetap menggunakan dari src asli (nilai default)
+                                console.log('Kembali menggunakan path/query dari src asli karena URL dalam parameter tidak valid.');
+                            }
+                        }
+                        // Jika parameter 'url' tidak ada, pathAndQuery sudah benar menggunakan dari src asli
+
+                        // Pastikan pathAndQuery diawali dengan '/' kecuali jika memang kosong atau hanya query string root
+                        // Note: URL.pathname sudah memastikan diawali '/' kecuali URL opaque
+                        // Jadi penggabungan pathname + search sudah benar seharusnya
+
+                        // Bangun URL yang diproxied, mengarah ke cors.ctrlc.workers.dev
+                        var proxiedSrc = 'https://cors.ctrlc.workers.dev' + pathAndQuery;
+
+                        console.log('Src asli:', src);
+                        console.log('Path/Query yang diambil:', pathAndQuery);
+                        console.log('Src diproxied:', proxiedSrc);
+
+                        // Perbarui src iframe
+                        $iframe.attr('src', proxiedSrc);
+
+                    } catch (e) {
+                        console.error('Gagal memproses src iframe "' + src + '":', e);
+                        // Tangani potensi error saat parsing src awal
+                    }
+                }
+            });
+            console.log("Selesai memproses iframes.");
+        });
+    }
+
+    // Logika untuk memuat jQuery jika belum ada
+    if (typeof window.jQuery == 'undefined') {
+        console.log("jQuery tidak ditemukan. Memuat dari CDN...");
+        var script = document.createElement('script');
+        script.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+        script.onload = function() {
+            console.log("jQuery berhasil dimuat.");
+            // Lakukan pekerjaan setelah jQuery dimuat
+            runIframeManipulation();
+        };
+        script.onerror = function() {
+             console.error("Gagal memuat jQuery dari CDN.");
+        };
+        document.head.appendChild(script);
+    } else {
+        console.log("jQuery sudah ada. Menjalankan langsung.");
+        // jQuery sudah ada, jalankan langsung
+        runIframeManipulation();
+    }
+})(); // Akhiri IIFE
+`;
+
+
 /**
  * Fungsi untuk memproses HTML menggunakan Cheerio dan mengubah link.
  * Mengubah link internal (mengarah ke targetBaseUrl) agar mengarah kembali ke proxy
- * dengan prefix yang sesuai.
+ * dengan prefix yang sesuai. Juga menyuntikkan script iframe untuk prefix /movie.
  * @param htmlContent String konten HTML.
  * @param prefix Prefix path proxy ('/movie' atau '/anime').
  * @param targetBaseUrl Base URL dari situs target (misal 'https://tv4.lk21official.cc').
@@ -77,7 +171,7 @@ function processHtml(htmlContent: string, prefix: "/movie" | "/anime", targetBas
         { selector: 'img[src]', attribute: 'src' },
         { selector: 'script[src]', attribute: 'src' },
         { selector: 'source[src]', attribute: 'src' }, // untuk <picture> atau <video>
-        { selector: 'iframe[src]', attribute: 'src' },
+        // { selector: 'iframe[src]', attribute: 'src' }, // IFRAME akan ditangani oleh script yang disuntikkan di klien
         { selector: 'form[action]', attribute: 'action' }, // Form submission
     ];
 
@@ -86,7 +180,7 @@ function processHtml(htmlContent: string, prefix: "/movie" | "/anime", targetBas
             const originalValue = $(elem).attr(attribute);
 
             if (originalValue) {
-                // Lewati jika anchor, mailto, tel, js, atau path kosong
+                // Lewati jika anchor, mailto, tel, js, atau path kosong/hanya query string
                 if (originalValue.startsWith('#') || originalValue.startsWith('mailto:') || originalValue.startsWith('tel:') || originalValue.startsWith('javascript:')) {
                     return;
                 }
@@ -97,13 +191,12 @@ function processHtml(htmlContent: string, prefix: "/movie" | "/anime", targetBas
 
                     // Cek apakah URL yang diresolusi berasal dari domain target
                     if (resolvedUrl.origin === targetOrigin) {
-                        // Bangun URL baru yang mengarah ke proxy
-                        // Format: http://proxy_host:port/prefix/original_path?original_query#original_hash
+                        // Bangun URL baru yang mengarah ke proxy Deno ini
                         const newUrl = `${prefix}${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
                         $(elem).attr(attribute, newUrl);
                          // console.log(`Transformed: ${originalValue} -> ${newUrl}`);
                     } else {
-                        // Jika URL mengarah ke domain lain, biarkan saja (atau bisa tambahkan logika lain jika perlu)
+                        // Jika URL mengarah ke domain lain, biarkan saja
                         // console.log(`Skipping external URL: ${originalValue}`);
                     }
                 } catch (e) {
@@ -113,6 +206,17 @@ function processHtml(htmlContent: string, prefix: "/movie" | "/anime", targetBas
             }
         });
     });
+
+    // --- Logika penyuntikan script iframe ---
+    if (prefix === "/movie") {
+        console.log(`Menyuntikkan script manipulasi iframe untuk ${prefix}`);
+        // Buat tag script dan tambahkan konten JavaScript
+        const scriptTag = `<script>${iframeManipulationScript}</script>`;
+        // Suntikkan di akhir body
+        $('body').append(scriptTag);
+    }
+    // --- Akhir logika penyuntikan script iframe ---
+
 
     return $.html(); // Kembalikan HTML yang sudah dimodifikasi
 }
@@ -194,6 +298,7 @@ async function handler(req: Request): Promise<Response> {
 
             if (isHtml) {
                 const htmlContent = await response.text(); // Baca body sebagai teks (HTML)
+                // Proses HTML, termasuk potensi penyuntikan script iframe
                 responseBody = processHtml(htmlContent, prefix, targetBaseUrl, currentTargetUrl);
                  finalHeaders["Content-Type"] = "text/html; charset=utf-8"; // Pastikan Content-Type benar setelah dimodifikasi
             } else {
