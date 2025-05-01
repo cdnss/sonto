@@ -60,93 +60,95 @@ const corsHeaders = {
 // Script JavaScript yang akan disuntikkan untuk memanipulasi iframe
 // Menggunakan backticks (`) untuk memudahkan penulisan multi-line
 const iframeManipulationScript = `
-(function() { // Gunakan IIFE (Immediately Invoked Function Expression) agar variabel tidak bocor
-    console.log("Menjalankan script manipulasi iframe proxy...");
-
-    // Definisi fungsi runIframeManipulation seperti yang diberikan
-    function runIframeManipulation() {
-        $(document).ready(function() {
-            console.log("jQuery ready. Memproses iframes...");
-            $('iframe').each(function() {
-                var $iframe = $(this);
-                var src = $iframe.attr('src');
-
-                if (src) {
-                    try {
-                        // Objek URL dari src asli iframe relative to current proxy page
-                        var originalUrlObj = new URL(src, window.location.href);
-
-                        // Default pathAndQuery menggunakan path dan query dari src asli
-                        var pathAndQuery = originalUrlObj.pathname + originalUrlObj.search;
-
-                        // Periksa apakah ada parameter query 'url'
-                        var innerUrlParam = originalUrlObj.searchParams.get('url');
-
-                        if (innerUrlParam) {
-                            try {
-                                // Decode nilai parameter 'url'
-                                var decodedInnerUrl = decodeURIComponent(innerUrlParam);
-                                // Coba parsing URL yang sudah di-decode
-                                // Gunakan null sebagai base URL karena decodedInnerUrl diharapkan sudah absolute
-                                var innerUrlObj = new URL(decodedInnerUrl);
-
-                                // Jika berhasil, gunakan path dan query dari URL dalam parameter
-                                pathAndQuery = innerUrlObj.pathname + innerUrlObj.search;
-
-                                console.log('Menggunakan URL dari parameter "url":', decodedInnerUrl);
-
-                            } catch (innerUrlError) {
-                                console.error('Gagal parsing URL dalam parameter "url" ("' + innerUrlParam + '"):', innerUrlError);
-                                // Jika decoding/parsing gagal, pathAndQuery tetap menggunakan dari src asli (nilai default)
-                                console.log('Kembali menggunakan path/query dari src asli karena URL dalam parameter tidak valid.');
-                            }
-                        }
-                        // Jika parameter 'url' tidak ada, pathAndQuery sudah benar menggunakan dari src asli
-
-                        // Pastikan pathAndQuery diawali dengan '/' kecuali jika memang kosong atau hanya query string root
-                        // Note: URL.pathname sudah memastikan diawali '/' kecuali URL opaque
-                        // Jadi penggabungan pathname + search sudah benar seharusnya
-
-                        // Bangun URL yang diproxied, mengarah ke cors.ctrlc.workers.dev
-                        var proxiedSrc = 'https://cors.ctrlc.workers.dev' + pathAndQuery;
-
-                        console.log('Src asli:', src);
-                        console.log('Path/Query yang diambil:', pathAndQuery);
-                        console.log('Src diproxied:', proxiedSrc);
-
-                        // Perbarui src iframe
-                        $iframe.attr('src', proxiedSrc);
-
-                    } catch (e) {
-                        console.error('Gagal memproses src iframe "' + src + '":', e);
-                        // Tangani potensi error saat parsing src awal
-                    }
-                }
-            });
-            console.log("Selesai memproses iframes.");
-        });
-    }
-
-    // Logika untuk memuat jQuery jika belum ada
-    if (typeof window.jQuery == 'undefined') {
-        console.log("jQuery tidak ditemukan. Memuat dari CDN...");
-        var script = document.createElement('script');
-        script.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
-        script.onload = function() {
-            console.log("jQuery berhasil dimuat.");
-            // Lakukan pekerjaan setelah jQuery dimuat
-            runIframeManipulation();
-        };
-        script.onerror = function() {
-             console.error("Gagal memuat jQuery dari CDN.");
-        };
-        document.head.appendChild(script);
-    } else {
-        console.log("jQuery sudah ada. Menjalankan langsung.");
-        // jQuery sudah ada, jalankan langsung
+// Kode untuk memuat jQuery jika belum ada (tetap sama)
+if (typeof jQuery == 'undefined') {
+    var script = document.createElement('script');
+    script.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+    script.onload = function() {
+        // Lakukan pekerjaan setelah jQuery dimuat
         runIframeManipulation();
-    }
-})(); // Akhiri IIFE
+    };
+    document.head.appendChild(script);
+} else {
+    // jQuery sudah ada, jalankan langsung
+    runIframeManipulation();
+}
+
+// Fungsi utama untuk memanipulasi iframe
+function runIframeManipulation() {
+    $(document).ready(function() {
+        $('iframe').each(function() {
+            var $iframe = $(this); // Simpan referensi ke iframe saat ini
+            var src = $iframe.attr('src');
+
+            if (!src) {
+                // Lewati jika src kosong
+                return;
+            }
+
+            try {
+                // Gunakan objek URL untuk mempermudah parsing src
+                var srcUrl = new URL(src);
+
+                // Dapatkan nilai parameter 'url' dari query string src iframe
+                var encodedVideoUrl = srcUrl.searchParams.get('url');
+
+                if (encodedVideoUrl) {
+                    // Decode URL yang didapat dari parameter 'url'
+                    var decodedVideoUrl = decodeURIComponent(encodedVideoUrl);
+
+                    try {
+                         // Parse URL yang sudah didecode untuk mendapatkan parameter 'id'
+                        var videoUrlObj = new URL(decodedVideoUrl);
+                        var videoId = videoUrlObj.searchParams.get('id');
+
+                        if (videoId) {
+                            // Buat URL API menggunakan id yang didapat
+                            // Menggunakan '?id=' sesuai standar parameter URL
+                            var apiUrl = 'https://cloud.hownetwork.xyz/api.php?id=' + videoId;
+
+                            // Lakukan panggilan AJAX ke API
+                            $.ajax({
+                                url: apiUrl,
+                                method: 'GET', // Biasanya API seperti ini menggunakan method GET
+                                dataType: 'json', // Harapkan respons dalam format JSON
+                                success: function(response) {
+                                    // Periksa apakah panggilan berhasil dan data tersedia
+                                    if (response.success && response.data && response.data.length > 0 && response.data[0].file) {
+                                        var videoFileUrl = response.data[0].file;
+
+                                        // Set src iframe dengan URL file video dari respons API
+                                        $iframe.attr('src', videoFileUrl);
+                                        console.log('Iframe src berhasil diperbarui untuk ID:', videoId, 'menjadi', videoFileUrl);
+                                    } else {
+                                        console.warn('Respons API tidak berhasil atau data file tidak ditemukan untuk ID:', videoId, response);
+                                        // Anda bisa menambahkan logika lain di sini jika API gagal atau tidak memberikan data yang diharapkan
+                                    }
+                                },
+                                error: function(jqXHR, textStatus, errorThrown) {
+                                    console.error('Gagal melakukan panggilan API untuk ID:', videoId, textStatus, errorThrown);
+                                    // Anda bisa menambahkan logika lain di sini untuk menangani kesalahan AJAX
+                                }
+                            });
+                        } else {
+                            console.warn('Parameter "id" tidak ditemukan dalam URL yang didecode:', decodedVideoUrl);
+                        }
+                    } catch (innerUrlError) {
+                         console.error('Error parsing decoded URL:', decodedVideoUrl, innerUrlError);
+                    }
+
+                } else {
+                    console.warn('Parameter "url" tidak ditemukan dalam src iframe:', src);
+                }
+
+            } catch (e) {
+                console.error('Error memproses src iframe:', src, e);
+                // Tangani error parsing URL jika src tidak valid
+            }
+        });
+    });
+}
+
 `;
 
 
