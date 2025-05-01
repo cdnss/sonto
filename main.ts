@@ -25,18 +25,27 @@ if (typeof jQuery == 'undefined') {
 
 function runIframeManipulation() {
     $(document).ready(function() {
-        $('iframe').each(function() {
-            var src = $(this).attr('src');
-            if (src) {
-                try {
-                    var resolvedUrl = new URL(src, window.location.href);
-                    var proxiedSrc = '/proxy?url=' + encodeURIComponent(resolvedUrl.toString()) +'&type=html';
-                    $(this).attr('src', proxiedSrc);
-                } catch (e) {
-                    console.error('Error processing iframe src:', src, e);
-                }
-            }
-        });
+    $('iframe').each(function() {
+    var src = $(this).attr('src');
+    if (src) {
+        try {
+            // resolvedUrl adalah URL target yang sudah lengkap
+            var resolvedUrl = new URL(src, window.location.href);
+
+            // Menggabungkan hanya path dan search (query string)
+            // resolvedUrl.pathname memberikan path (contoh: /halaman)
+            // resolvedUrl.search memberikan query string (contoh: ?id=123)
+            var pathAndQuery = resolvedUrl.pathname + resolvedUrl.search;
+
+            // Menggunakan proxy base dan menambahkan gabungan path+query yang di-encode
+            var proxiedSrc = 'https://cors.ctrlc.workers.dev' + pathAndQuery;
+
+            $(this).attr('src', proxiedSrc);
+        } catch (e) {
+            console.error('Error processing iframe src:', src, e);
+        }
+    }
+});
     });
 }
 `;
