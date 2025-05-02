@@ -176,7 +176,7 @@ async function handler(req: Request): Promise<Response> {
             // Fetch konten dari URL tujuan
             const response = await fetch(currentTargetUrl, {
                  method: req.method, // Lewatkan method request asli
-                 // headers: req.headers, // Hati-hati saat meneruskan header klien, mungkin tidak selalu diinginkan
+                 headers: req.headers, // Hati-hati saat meneruskan header klien, mungkin tidak selalu diinginkan
                  body: req.body, // Lewatkan body request asli (jika ada)
                  redirect: 'follow' // Ikuti redirect jika ada
             });
