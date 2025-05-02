@@ -1,3 +1,4 @@
+import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
 
 /**
  * Fungsi untuk memproses HTML menggunakan Cheerio dan mengubah link.
