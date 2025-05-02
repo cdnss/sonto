@@ -4,6 +4,7 @@
  * Melakukan permintaan POST ke API target dengan ID yang diberikan.
  * Menggunakan redirect: 'manual' untuk mengembalikan objek Response apa adanya,
  * memungkinkan caller untuk menangani redirect dan status lainnya.
+ * Menyertakan header standar (termasuk Referer dan Origin) untuk meniru permintaan browser.
  *
  * @param id ID yang akan digunakan dalam parameter query URL.
  * @returns Promise yang mengembalikan objek Response dari server target.
@@ -19,6 +20,7 @@ export async function postDataToApi(id: string): Promise<Response> { // Mengemba
 
   // Membangun URL target awal dengan ID yang diberikan
   const initialTargetUrl = `https://cloud.hownetwork.xyz/api.php?id=${encodeURIComponent(id)}`;
+  const targetUrlOrigin = new URL(initialTargetUrl).origin; // Ambil origin dari URL target
 
   // Payload untuk permintaan POST
   const payload = { r: '', d: 'cors.ctrlc.workers.dev' };
@@ -27,13 +29,20 @@ export async function postDataToApi(id: string): Promise<Response> { // Mengemba
 
   try {
     // Melakukan permintaan POST TANPA mengikuti redirect secara otomatis
-    // Mengembalikan Response object apa adanya
+    // Menambahkan header standar
     const targetResponse = await fetch(initialTargetUrl, {
       method: 'POST',
-      redirect: 'manual', // PENTING: Jangan ikuti redirect secara otomatis
+      redirect: 'manual', // Tetap manual agar handler Deno bisa memproses redirect
       headers: {
         "Content-Type": "application/json",
-        // Anda mungkin perlu meneruskan header lain dari permintaan klien awal di sini di proxy
+        // Tambahkan header standar
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36", // Contoh User-Agent browser
+        "Accept": "application/json, text/plain, */*", // Menyatakan dapat menerima JSON, teks, atau tipe lainnya
+        "Accept-Language": "en-US,en;q=0.9", // Menyatakan preferensi bahasa
+        // Tambahkan Referer dan Origin
+        "Referer": initialTargetUrl, // Mengatur Referer ke URL yang sama (bisa juga ke halaman fiktif di domain target)
+        "Origin": targetUrlOrigin, // Mengatur Origin ke origin dari URL target
+        // Header lain dari permintaan klien asli bisa diteruskan di sini oleh proxy jika relevan dan aman
       },
       body: JSON.stringify(payload)
     });
