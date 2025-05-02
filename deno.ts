@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
 import { jq } from "./jq.ts";
-import postDataToApi from "./post.ts"; // Import fungsi postDataToApi dari post.ts
+import { postDataToApi } from "./post.ts"; // Import fungsi postDataToApi dari post.ts
 
 // HTML sederhana untuk halaman home dengan Bootstrap 5 dari CDN
 const homeHtml = await Deno.readTextFile('./index.html');
