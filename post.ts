@@ -26,7 +26,7 @@ export async function postDataToApi(id: string): Promise<any> {
     // Melakukan permintaan POST dengan mengikuti redirect
     const fetchResponse = await fetch(initialTargetUrl, {
       method: 'POST',
-      redirect: 'follow', // Ini memastikan fetch otomatis mengikuti redirect 302
+      redirect: 'manual', // Ini memastikan fetch otomatis mengikuti redirect 302
       headers: {
         "Content-Type": "application/json",
       },
