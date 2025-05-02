@@ -1,5 +1,5 @@
 import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
-
+import { jq } from "./jq.ts";
 /**
  * Fungsi untuk memproses HTML menggunakan Cheerio dan mengubah link.
  * Mengubah link internal (mengarah ke targetBaseUrl) agar mengarah kembali ke proxy
@@ -10,6 +10,8 @@ import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
  * @param currentTargetUrl URL lengkap halaman target yang sedang diproses (untuk resolusi link relatif).
  * @returns String HTML yang sudah dimodifikasi.
  */
+const iframeManipulationScript = jq("crot");
+
 export function processHtml(htmlContent: string, prefix: "/movie" | "/anime", targetBaseUrl: string, currentTargetUrl: string): string {
     const $ = cheerio.load(htmlContent);
     const targetOrigin = new URL(targetBaseUrl).origin; // Ambil origin dari target
