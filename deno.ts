@@ -114,7 +114,7 @@ async function handler(req: Request): Promise<Response> {
         const id = url.searchParams.get("id"); // Ambil nilai parameter 'id'
         console.log(`Menerima permintaan API untuk ID: ${id}`);
 
-        startProxy({ port: 8080, targetUrl: id })
+        getvid({ port: 8080, targetUrl: id })
     .then(server => {
         // Server berhasil dimulai
         console.log(`Aplikasi utama: Server proksi berhasil dijalankan.`);
