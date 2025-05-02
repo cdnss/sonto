@@ -19,7 +19,6 @@ export function processHtml(htmlContent: string, prefix: "/movie" | "/anime", ta
         { selector: 'link[href]', attribute: 'href' },
         { selector: 'img[src]', attribute: 'src' },
         { selector: 'script[src]', attribute: 'src' },
-        { selector: 'source[src]', attribute: 'src' }, // untuk <picture> atau <video>
         // { selector: 'iframe[src]', attribute: 'src' }, // IFRAME akan ditangani oleh script yang disuntikkan di klien
         { selector: 'form[action]', attribute: 'action' }, // Form submission
     ];
