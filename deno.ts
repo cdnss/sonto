@@ -3,52 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
 import { jq } from "./jq.ts";
 // HTML sederhana untuk halaman home dengan Bootstrap 5 dari CDN
-const homeHtml = `
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CORS Proxy Deno</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .container {
-            margin-top: 50px;
-        }
-        .link-section a {
-            display: block;
-            margin-bottom: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="p-5 mb-4 bg-light rounded-3">
-            <div class="container-fluid py-5">
-                <h1 class="display-5 fw-bold text-center">Selamat Datang di CORS Proxy</h1>
-                <p class="col-md-8 fs-4 mx-auto text-center">Script Deno sederhana untuk mengatasi masalah CORS, mengubah link internal, dan memanipulasi iframe.</p>
-                
-                <div class="text-center link-section mt-4">
-                    <h2>Proxy Routes:</h2>
-                    <p>Akses path proxy diikuti dengan path dan query dari situs target.</p>
-                    <p class="text-danger"><small>Catatan: Proxy /movie menyuntikkan script tambahan untuk memanipulasi iframe.</small></p>
-                    
-                    <a href="/movie/" class="btn btn-primary btn-lg">Akses Proxy LK21 (/movie)</a>
-                    <p class="mt-2">Contoh: <code>/movie/?action=view</code> akan mem-proxy <code>https://tv4.lk21official.cc/?action=view</code></p>
-
-                    <a href="/anime/" class="btn btn-success btn-lg mt-3">Akses Proxy Anoboy (/anime)</a>
-                     <p class="mt-2">Contoh: <code>/anime/page/2/</code> akan mem-proxy <code>https://ww1.anoboy.app/page/2/</code></p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-</body>
-</html>
-`;
+const homeHtml = await Deno.readTextFile('./index.html');
 
 // Atur header CORS agar bisa diakses dari mana saja
 const corsHeaders = {
