@@ -114,17 +114,14 @@ async function handler(req: Request): Promise<Response> {
         const id = url.searchParams.get("id"); // Ambil nilai parameter 'id'
         console.log(`Menerima permintaan API untuk ID: ${id}`);
 
-        getvid({ port: 8080, targetUrl: id })
-    .then(server => {
-        // Server berhasil dimulai
-        console.log(`Aplikasi utama: Server proksi berhasil dijalankan.`);
-        // Jika Anda perlu melakukan sesuatu setelah server siap, lakukan di sini
-        // Instance 'server' bisa digunakan untuk menutup server nanti jika diperlukan (server.close())
-    })
-    .catch(error => {
-        // Terjadi kesalahan saat memulai server
-        console.error("Aplikasi utama: Terjadi kesalahan saat menjalankan server proksi:", error);
-    });
+        const proxyResponse = await getvid(req, "/api.php");
+
+    // Cek apakah fungsi proksi mengembalikan respons (berarti permintaan ditangani)
+    // Ini bisa berupa respons sukses atau respons error 400 dari handleCorsProxyLogic
+    if (proxyResponse !== null) {
+        console.log(`[MainHandler] Permintaan ditangani oleh logika proksi generik.`);
+        return proxyResponse; // Kembalikan respons dari proksi (sukses atau error 400)
+    }
     }
     // --- AKHIR PENANGANAN API BARU /api.php?id=... ---
 
