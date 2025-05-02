@@ -34,7 +34,7 @@ export async function getvid(
     }
 
     // Path cocok, sekarang ambil URL target dari parameter query 'id'
-    const targetUrl = url.searchParams.get('id').replace("video.php","api.php");
+    const targetUrl = url.searchParams.get('id').replace("video","api");
 
     // Cek apakah parameter 'id' ada
     if (!targetUrl) {
