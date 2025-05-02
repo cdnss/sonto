@@ -2,15 +2,18 @@
 
 /**
  * Melakukan permintaan POST ke API target dengan ID yang diberikan.
- * Secara otomatis mengikuti pengalihan (redirect) HTTP.
+ * Menggunakan redirect: 'manual' untuk mengembalikan objek Response apa adanya,
+ * memungkinkan caller untuk menangani redirect dan status lainnya.
  *
  * @param id ID yang akan digunakan dalam parameter query URL.
- * @returns Promise yang mengembalikan respons JSON dari API target (dari URL akhir setelah pengalihan).
- * @throws Error jika parameter ID tidak valid, permintaan fetch gagal, atau API target mengembalikan status non-OK (baik dari URL awal maupun URL setelah pengalihan).
+ * @returns Promise yang mengembalikan objek Response dari server target.
+ * @throws Error jika parameter ID tidak valid atau permintaan fetch gagal (error jaringan).
+ * Tidak melempar error untuk status HTTP non-OK; caller harus memeriksanya.
  */
-export async function postDataToApi(id: string): Promise<any> {
+export async function postDataToApi(id: string): Promise<Response> { // Mengembalikan Promise<Response>
   // Memeriksa apakah ID valid
   if (!id || typeof id !== 'string') {
+    // Melempar Error di sini karena ini adalah masalah input, bukan respons server
     throw new Error("Parameter ID tidak valid.");
   }
 
@@ -20,60 +23,32 @@ export async function postDataToApi(id: string): Promise<any> {
   // Payload untuk permintaan POST
   const payload = { r: '', d: 'cors.ctrlc.workers.dev' };
 
-  console.log(`Melakukan permintaan POST ke: ${initialTargetUrl}`); // Log URL awal
+  console.log(`[postDataToApi] Melakukan permintaan POST ke: ${initialTargetUrl}`); // Log di dalam fungsi fetch
 
   try {
-    // Melakukan permintaan POST dengan mengikuti redirect
-    const fetchResponse = await fetch(initialTargetUrl, {
+    // Melakukan permintaan POST TANPA mengikuti redirect secara otomatis
+    // Mengembalikan Response object apa adanya
+    const targetResponse = await fetch(initialTargetUrl, {
       method: 'POST',
-      redirect: 'manual', // Ini saya ganti manualb
+      redirect: 'manual', // PENTING: Jangan ikuti redirect secara otomatis
       headers: {
         "Content-Type": "application/json",
+        // Anda mungkin perlu meneruskan header lain dari permintaan klien awal di sini di proxy
       },
       body: JSON.stringify(payload)
     });
 
-    // Memeriksa apakah pengalihan terjadi
-    if (fetchResponse.redirected) {
-      console.log(`Permintaan dialihkan ke: ${fetchResponse.url}`); // Log URL akhir setelah pengalihan
-    } else {
-       console.log(`Permintaan tidak dialihkan. URL respons: ${fetchResponse.url}`); // Log URL respons jika tidak ada pengalihan
-    }
+    console.log(`[postDataToApi] Menerima respons dengan status: ${targetResponse.status}. Mengembalikan Response.`);
 
-
-    // Memeriksa apakah respons dari URL akhir OK (status 2xx)
-    if (!fetchResponse.ok) {
-       let errorBody: any;
-       const responseUrl = fetchResponse.url; // Ambil URL respons (setelah pengalihan jika ada)
-       try {
-           // Coba baca body respons (mungkin berisi detail error dalam JSON)
-           errorBody = await fetchResponse.json();
-       } catch (jsonError) {
-            // Jika bukan JSON, coba baca sebagai teks
-             try {
-               errorBody = await fetchResponse.text();
-             } catch (textError) {
-               errorBody = `Tidak dapat membaca body respons. Status: ${fetchResponse.status} dari URL: ${responseUrl}`;
-             }
-       }
-      // Melemparkan Error jika status non-OK, termasuk status, URL akhir, dan body (jika ada)
-      throw new Error(`Server target merespons dengan status ${fetchResponse.status} dari URL: ${responseUrl}. Body: ${JSON.stringify(errorBody).substring(0, 200) + (typeof errorBody === 'string' && errorBody.length > 200 ? '...' : '')}`);
-    }
-
-    // Mengurai body respons sebagai JSON
-    // Penting: Ini akan mencoba mengurai JSON dari respons URL akhir setelah pengalihan.
-    // Jika URL akhir mengembalikan sesuatu yang BUKAN JSON (seperti halaman 404),
-    // await fetchResponse.json() akan gagal dan ditangkap oleh block catch di bawah.
-    const responseBody = await fetchResponse.json();
-
-    // Mengembalikan data JSON dari respons akhir
-    return responseBody;
+    // Mengembalikan objek Response untuk diproses oleh caller (kode proxy di deno.ts)
+    return targetResponse;
 
   } catch (error: any) {
-    // Menangani error jaringan, error parsing JSON dari respons, atau error lain selama proses fetch
-    console.error(`Error saat melakukan fetch untuk ID '${id}' (setelah potensi pengalihan):`, error);
-    // Melemparkan error baru dengan pesan yang jelas
-    throw new Error(`Gagal mengambil data untuk ID '${id}' (setelah potensi pengalihan): ${error.message}`);
+    // Menangani error jaringan atau error lain yang mencegah fetch berhasil sama sekali
+    console.error(`[postDataToApi ERROR] Error saat melakukan fetch ke '${initialTargetUrl}' untuk ID '${id}':`, error);
+    // Melemparkan error baru dengan pesan yang jelas jika fetch gagal total
+    // Caller (handler Deno) akan menangkap ini dan mengembalikan respons error 500 ke klien
+    throw new Error(`[postDataToApi ERROR] Gagal terhubung atau melakukan fetch ke target untuk ID '${id}': ${error.message}`);
   }
 }
 
