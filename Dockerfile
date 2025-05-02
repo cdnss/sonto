@@ -12,7 +12,7 @@ COPY . .
 # Perintah yang akan dijalankan saat container dimulai
 # Ini menjalankan script deno.ts dengan flag -A (untuk mengizinkan semua izin)
 CMD ["deno", "run", "-A", "deno.ts"]
-
+EXPOSE 8080
 # Catatan: Menggunakan -A memberikan semua izin (read, write, net, env, run, ffi).
 # Untuk keamanan yang lebih baik dalam produksi, disarankan untuk hanya memberikan
 # izin yang dibutuhkan saja (misalnya, --allow-net, --allow-read=/path/to/file).
