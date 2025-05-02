@@ -114,7 +114,7 @@ async function handler(req: Request): Promise<Response> {
         const id = url.searchParams.get("id"); // Ambil nilai parameter 'id'
         console.log(`Menerima permintaan API untuk ID: ${id}`);
 
-        const proxyResponse = await getvid(req, "/api.php");
+        const proxyResponse = await getvid(req, {triggerPath: "/api.php"});
 
     // Cek apakah fungsi proksi mengembalikan respons (berarti permintaan ditangani)
     // Ini bisa berupa respons sukses atau respons error 400 dari handleCorsProxyLogic
