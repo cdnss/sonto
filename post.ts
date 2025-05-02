@@ -1,109 +1,105 @@
-// post.ts
-// Import fungsi serve dari Deno standard library
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-// Import tipe Server jika Anda ingin anotasi tipe untuk nilai kembali
-import type { Server } from "https://deno.land/std@0.224.0/http/server.ts";
+// Import tipe Response dan Request jika Anda ingin anotasi tipe
+import type { Request, Response } from "https://deno.land/std@0.224.0/http/server.ts";
 
-// Definisikan interface untuk opsi konfigurasi proksi
-interface ProxyOptions {
-    port: number; // Port tempat proksi akan mendengarkan
-    targetUrl: string; // URL target yang akan diproksi
+// Definisikan interface untuk konfigurasi logika proksi
+export interface ProxyConfig {
+    // Path di server Anda yang akan memicu logika proksi ini
+    // Contoh: '/api/data-proxy'
+    triggerPath: string;
+    // URL target tujuan proksi
+    targetUrl: string;
 }
 
 /**
- * Memulai server proksi CORS Deno.
+ * Fungsi untuk menerapkan logika proksi CORS untuk permintaan tertentu.
+ * Jika request.url.pathname cocok dengan triggerPath, fungsi ini akan
+ * melakukan proxy request ke targetUrl dan mengembalikan Response dengan header CORS.
+ * Jika tidak cocok, fungsi akan mengembalikan null.
  *
- * @param options - Objek konfigurasi yang berisi port dan targetUrl.
- * @returns Promise yang me-resolve dengan instance Server setelah server mulai.
+ * @param request - Objek Request masuk dari klien.
+ * @param config - Konfigurasi proxy, termasuk triggerPath dan targetUrl.
+ * @returns Promise yang me-resolve dengan Response yang diproksi (dengan CORS) atau null.
  */
-export async function getvid(options: ProxyOptions): Promise<Server> {
-    const { port, targetUrl } = options;
+export async function getvid(
+    request: Request,
+    config: ProxyConfig
+): Promise<Response | null> {
+    const url = new URL(request.url);
 
-    console.log(`[Proxy] Memulai proksi CORS Deno di http://localhost:${port}`);
-    console.log(`[Proxy] Memproksi permintaan ke: ${targetUrl}`);
+    // Cek apakah path permintaan cocok dengan triggerPath yang ditentukan
+    if (url.pathname !== config.triggerPath) {
+        // Path tidak cocok, logika proksi tidak diterapkan untuk permintaan ini
+        // console.log(`[ProxyLogic] Path "${url.pathname}" tidak cocok dengan triggerPath "${config.triggerPath}". Melewati.`); // Opsional
+        return null;
+    }
 
-    // Handler untuk setiap permintaan masuk ke server proksi
-    const handler = async (request: Request): Promise<Response> => {
-        // Tangani permintaan pre-flight OPTIONS untuk CORS
-        if (request.method === "OPTIONS") {
-            // console.log("[Proxy] Menangani permintaan OPTIONS (pre-flight CORS)"); // Opsional untuk debugging
-            return new Response(null, {
-                status: 204, // No Content untuk permintaan OPTIONS yang berhasil
-                headers: {
-                    "Access-Control-Allow-Origin": "*", // Izinkan permintaan dari asal manapun
-                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", // Metode yang diizinkan
-                    "Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") || "*", // Izinkan header yang diminta oleh klien atau semua
-                    "Access-Control-Max-Age": "86400", // Cache pre-flight request selama 24 jam
-                },
-            });
-        }
+    console.log(`[ProxyLogic] Permintaan ke "${url.pathname}" cocok. Menerapkan logika proksi ke "${config.targetUrl}"`);
 
-        // Tangani permintaan lainnya (GET, POST, dll.)
-        try {
-            // console.log(`[Proxy] Meneruskan ${request.method} ${request.url} ke target`); // Opsional untuk debugging
-            // Buat permintaan baru untuk URL target
-            // Salin metode, header, dan body dari permintaan asli klien
-            const targetRequest = new Request(targetUrl, {
-                method: request.method,
-                headers: request.headers,
-                body: request.body, // Body akan null untuk GET/HEAD
-                redirect: 'follow', // Secara default Deno akan mengikuti redirect
-            });
+    // --- Logika proksi CORS yang sama seperti sebelumnya ---
 
-            // Kirim permintaan ke URL target dan tunggu responsnya
-            const targetResponse = await fetch(targetRequest);
-            // console.log(`[Proxy] Menerima respons dari target dengan status: ${targetResponse.status}`); // Opsional untuk debugging
+    // Tangani permintaan pre-flight OPTIONS untuk CORS hanya jika path cocok
+    if (request.method === "OPTIONS") {
+        // console.log("[ProxyLogic] Menangani permintaan OPTIONS (pre-flight CORS)"); // Opsional
+        return new Response(null, {
+            status: 204,
+            headers: {
+                "Access-Control-Allow-Origin": "*", // Izinkan dari asal manapun
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", // Metode yang diizinkan
+                "Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") || "*", // Izinkan header yang diminta atau semua
+                "Access-Control-Max-Age": "86400", // Cache pre-flight request selama 24 jam
+            },
+        });
+    }
 
-            // Buat respons baru untuk dikirim kembali ke klien
-            // Salin body, status, dan statusText dari respons target
-            const clientResponse = new Response(targetResponse.body, {
-                status: targetResponse.status,
-                statusText: targetResponse.statusText,
-                headers: new Headers(targetResponse.headers), // Salin semua header dari respons target
-            });
+    // Tangani permintaan lainnya (GET, POST, dll.) jika path cocok
+    try {
+        // console.log(`[ProxyLogic] Meneruskan ${request.method} request ke: ${config.targetUrl}`); // Opsional
+        const targetRequest = new Request(config.targetUrl, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body, // Body akan null untuk GET/HEAD
+            redirect: 'follow',
+        });
 
-            // TAMBAHKAN/TIMPA HEADER CORS PENTING
-            // Ini adalah bagian kunci yang membuat proksi ini berfungsi sebagai proksi CORS
-            clientResponse.headers.set("Access-Control-Allow-Origin", "*"); // Mengizinkan akses dari domain manapun
+        const targetResponse = await fetch(targetRequest);
+        // console.log(`[ProxyLogic] Menerima respons dari target dengan status: ${targetResponse.status}`); // Opsional
 
-            // Pastikan header Vary mencakup 'Origin' untuk penanganan cache yang benar pada respons CORS
-            const vary = clientResponse.headers.get('Vary');
-            if (vary) {
-                if (!vary.toLowerCase().includes('origin')) {
-                     clientResponse.headers.set('Vary', `${vary}, Origin`);
-                }
-            } else {
-                clientResponse.headers.set('Vary', 'Origin');
+        const clientResponse = new Response(targetResponse.body, {
+            status: targetResponse.status,
+            statusText: targetResponse.statusText,
+            headers: new Headers(targetResponse.headers),
+        });
+
+        // Tambahkan/timpa header CORS penting ke respons klien
+        clientResponse.headers.set("Access-Control-Allow-Origin", "*");
+
+        const vary = clientResponse.headers.get('Vary');
+        if (vary) {
+            if (!vary.toLowerCase().includes('origin')) {
+                 clientResponse.headers.set('Vary', `${vary}, Origin`);
             }
-
-            // Hapus header hop-by-hop yang mungkin disalin tapi tidak seharusnya diteruskan (opsional tapi baik)
-            // Deno fetch umumnya sudah menangani ini, tapi eksplisit lebih aman.
-            const hopByHopHeaders = [
-                'Connection', 'Keep-Alive', 'Proxy-Authenticate', 'Proxy-Authorization',
-                'Te', 'Trailers', 'Transfer-Encoding', 'Upgrade'
-            ];
-             hopByHopHeaders.forEach(header => {
-                if (clientResponse.headers.has(header)) {
-                   clientResponse.headers.delete(header);
-                }
-            });
-
-
-            // console.log("[Proxy] Mengirim respons kembali ke klien dengan header CORS"); // Opsional untuk debugging
-            return clientResponse;
-
-        } catch (error) {
-            console.error("[Proxy] Terjadi kesalahan saat permintaan proksi:", error);
-            // Berikan respons error jika terjadi masalah saat mengambil data dari target
-            return new Response(`Proxy error: ${error.message}`, { status: 500 });
+        } else {
+            clientResponse.headers.set('Vary', 'Origin');
         }
-    };
 
-    // Jalankan server Deno menggunakan handler yang telah dibuat
-    // Deno.serve mengembalikan Promise<Server> yang me-resolve saat server siap
-    const server = await serve(handler, { port });
+         const hopByHopHeaders = [
+            'Connection', 'Keep-Alive', 'Proxy-Authenticate', 'Proxy-Authorization',
+            'Te', 'Trailers', 'Transfer-Encoding', 'Upgrade'
+        ];
+         hopByHopHeaders.forEach(header => {
+            if (clientResponse.headers.has(header)) {
+               clientResponse.headers.delete(header);
+            }
+        });
 
-    // Mengembalikan instance server agar bisa dikelola oleh pemanggil (misal: dihentikan)
-    return server;
+
+        // Mengembalikan respons yang sudah dimodifikasi dengan header CORS
+        console.log(`[ProxyLogic] Mengembalikan respons yang diproksi untuk "${url.pathname}"`);
+        return clientResponse;
+
+    } catch (error) {
+        console.error("[ProxyLogic] Terjadi kesalahan saat permintaan proksi:", error);
+        // Mengembalikan respons error jika terjadi masalah pada proksi
+        return new Response(`Proxy error: ${error.message}`, { status: 500 });
+    }
 }
-
