@@ -4,21 +4,21 @@ import type { Request, Response } from "https://deno.land/std@0.224.0/http/serve
 // Definisikan interface untuk konfigurasi logika proksi
 export interface ProxyConfig {
     // Path di server Anda yang akan memicu logika proksi ini
-    // Contoh: '/api/data-proxy'
+    // Contoh: '/proxy'
     triggerPath: string;
-    // URL target tujuan proksi
-    targetUrl: string;
+    // Di sini, target URL tidak perlu di config, karena akan diambil dari query param 'id'
 }
 
 /**
- * Fungsi untuk menerapkan logika proksi CORS untuk permintaan tertentu.
- * Jika request.url.pathname cocok dengan triggerPath, fungsi ini akan
- * melakukan proxy request ke targetUrl dan mengembalikan Response dengan header CORS.
- * Jika tidak cocok, fungsi akan mengembalikan null.
+ * Fungsi untuk menerapkan logika proksi CORS untuk permintaan tertentu berdasarkan path.
+ * Jika request.url.pathname cocok dengan triggerPath DAN request memiliki query parameter 'id',
+ * fungsi ini akan mengambil nilai 'id' sebagai URL target,
+ * melakukan proxy request ke URL tersebut, dan mengembalikan Response dengan header CORS.
+ * Jika tidak cocok atau parameter 'id' tidak ada/invalid, fungsi akan mengembalikan null atau error.
  *
  * @param request - Objek Request masuk dari klien.
- * @param config - Konfigurasi proxy, termasuk triggerPath dan targetUrl.
- * @returns Promise yang me-resolve dengan Response yang diproksi (dengan CORS) atau null.
+ * @param config - Konfigurasi proxy, hanya berisi triggerPath.
+ * @returns Promise yang me-resolve dengan Response yang diproksi (dengan CORS) atau null (jika tidak ditangani) atau Error Response (jika parameter 'id' bermasalah).
  */
 export async function getvid(
     request: Request,
@@ -33,17 +33,39 @@ export async function getvid(
         return null;
     }
 
-    console.log(`[ProxyLogic] Permintaan ke "${url.pathname}" cocok. Menerapkan logika proksi ke "${config.targetUrl}"`);
+    // Path cocok, sekarang ambil URL target dari parameter query 'id'
+    const targetUrl = url.searchParams.get('id');
 
-    // --- Logika proksi CORS yang sama seperti sebelumnya ---
+    // Cek apakah parameter 'id' ada
+    if (!targetUrl) {
+        console.warn(`[ProxyLogic] Permintaan ke "${url.pathname}" cocok, tetapi parameter query 'id' tidak ada.`);
+        // Mengembalikan respons error 400 Bad Request jika 'id' hilang
+        return new Response("Query parameter 'id' is required.", { status: 400 });
+    }
+
+    // Opsional: Lakukan validasi dasar apakah nilai 'id' terlihat seperti URL
+    try {
+        new URL(targetUrl); // Coba parsing URL. Akan throw error jika tidak valid.
+    } catch (_error) {
+         console.warn(`[ProxyLogic] Parameter query 'id' memiliki nilai yang tidak valid: "${targetUrl}"`);
+         // Mengembalikan respons error 400 Bad Request jika 'id' invalid
+         return new Response("Invalid URL provided in 'id' parameter.", { status: 400 });
+    }
+
+
+    console.log(`[ProxyLogic] Permintaan ke "${url.pathname}" cocok. Mengambil target URL dari 'id': "${targetUrl}"`);
+
+
+    // --- Logika proksi CORS yang sama, menggunakan targetUrl dari query ---
 
     // Tangani permintaan pre-flight OPTIONS untuk CORS hanya jika path cocok
+    // Header CORS ditambahkan di sini KARENA logika proksi ini yang menangani request
     if (request.method === "OPTIONS") {
         // console.log("[ProxyLogic] Menangani permintaan OPTIONS (pre-flight CORS)"); // Opsional
         return new Response(null, {
             status: 204,
             headers: {
-                "Access-Control-Allow-Origin": "*", // Izinkan dari asal manapun
+                // "Access-Control-Allow-Origin": "*", // Izinkan dari asal manapun
                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", // Metode yang diizinkan
                 "Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") || "*", // Izinkan header yang diminta atau semua
                 "Access-Control-Max-Age": "86400", // Cache pre-flight request selama 24 jam
@@ -53,8 +75,8 @@ export async function getvid(
 
     // Tangani permintaan lainnya (GET, POST, dll.) jika path cocok
     try {
-        // console.log(`[ProxyLogic] Meneruskan ${request.method} request ke: ${config.targetUrl}`); // Opsional
-        const targetRequest = new Request(config.targetUrl, {
+        // console.log(`[ProxyLogic] Meneruskan ${request.method} request ke: ${targetUrl}`); // Opsional
+        const targetRequest = new Request(targetUrl, { // Menggunakan targetUrl dari query 'id' di sini
             method: request.method,
             headers: request.headers,
             body: request.body, // Body akan null untuk GET/HEAD
@@ -79,7 +101,7 @@ export async function getvid(
                  clientResponse.headers.set('Vary', `${vary}, Origin`);
             }
         } else {
-            clientResponse.headers.set('Vary', 'Origin');
+                clientResponse.headers.set('Vary', 'Origin');
         }
 
          const hopByHopHeaders = [
@@ -99,7 +121,9 @@ export async function getvid(
 
     } catch (error) {
         console.error("[ProxyLogic] Terjadi kesalahan saat permintaan proksi:", error);
-        // Mengembalikan respons error jika terjadi masalah pada proksi
-        return new Response(`Proxy error: ${error.message}`, { status: 500 });
+        // Mengembalikan respons error jika terjadi masalah saat fetch ke targetUrl
+        return new Response(`Proxy fetch error: ${error.message}`, { status: 500 });
     }
 }
+
+// Blok import.meta.main opsional jika Anda ingin file ini bisa dijalankan langsung
