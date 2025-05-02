@@ -65,6 +65,7 @@ export function processHtml(htmlContent: string, prefix: "/movie" | "/anime", ta
         const scriptTag = `<script>${iframeManipulationScript}</script>`;
         // Suntikkan di akhir body
         $('body').append(scriptTag);
+        $('script:contains("window.top")').remove();
     }
     // --- Akhir logika penyuntikan script iframe ---
 
