@@ -24,9 +24,7 @@ export async function postDataToApi(id: string): Promise<any> {
     const fetchResponse = await fetch(targetUrl, {
       method: 'POST',
       redirect: 'follow',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: req.headers, 
       body: JSON.stringify(payload)
     });
 
