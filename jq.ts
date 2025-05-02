@@ -51,7 +51,7 @@ function runIframeManipulation() {
                             // Lakukan panggilan AJAX ke API
                             $.ajax({
                                 url: apiUrl,
-                                method: 'POST', // Biasanya API seperti ini menggunakan method GET
+                                method: 'GET', // Biasanya API seperti ini menggunakan method GET
                                 dataType: 'json', // Harapkan respons dalam format JSON
                                 success: function(response) {
                                     // Periksa apakah panggilan berhasil dan data tersedia
