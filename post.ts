@@ -1,64 +1,109 @@
 // post.ts
+// Import fungsi serve dari Deno standard library
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// Import tipe Server jika Anda ingin anotasi tipe untuk nilai kembali
+import type { Server } from "https://deno.land/std@0.224.0/http/server.ts";
 
-/**
- * Melakukan permintaan POST ke API target dengan ID yang diberikan.
- * Menggunakan redirect: 'manual' untuk mengembalikan objek Response apa adanya,
- * memungkinkan caller untuk menangani redirect dan status lainnya.
- * Menyertakan header standar (termasuk Referer dan Origin) untuk meniru permintaan browser.
- *
- * @param id ID yang akan digunakan dalam parameter query URL.
- * @returns Promise yang mengembalikan objek Response dari server target.
- * @throws Error jika parameter ID tidak valid atau permintaan fetch gagal (error jaringan).
- * Tidak melempar error untuk status HTTP non-OK; caller harus memeriksanya.
- */
-export async function postDataToApi(id: string): Promise<Response> { // Mengembalikan Promise<Response>
-  // Memeriksa apakah ID valid
-  if (!id || typeof id !== 'string') {
-    // Melempar Error di sini karena ini adalah masalah input, bukan respons server
-    throw new Error("Parameter ID tidak valid.");
-  }
-
-  // Membangun URL target awal dengan ID yang diberikan
-  const initialTargetUrl = `https://cloud.hownetwork.xyz/api.php?id=${encodeURIComponent(id)}`;
-  const targetUrlOrigin = new URL(initialTargetUrl).origin; // Ambil origin dari URL target
-
-  // Payload untuk permintaan POST
-  const payload = { r: '', d: 'cors.ctrlc.workers.dev' };
-
-  console.log(`[postDataToApi] Melakukan permintaan POST ke: ${initialTargetUrl}`); // Log di dalam fungsi fetch
-
-  try {
-    // Melakukan permintaan POST TANPA mengikuti redirect secara otomatis
-    // Menambahkan header standar
-    const targetResponse = await fetch(initialTargetUrl, {
-      method: 'POST',
-      redirect: 'manual', // Tetap manual agar handler Deno bisa memproses redirect
-      headers: {
-        "Content-Type": "application/json",
-        // Tambahkan header standar
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36", // Contoh User-Agent browser
-        "Accept": "application/json, text/plain, */*", // Menyatakan dapat menerima JSON, teks, atau tipe lainnya
-        "Accept-Language": "en-US,en;q=0.9", // Menyatakan preferensi bahasa
-        // Tambahkan Referer dan Origin
-        "Referer": initialTargetUrl, // Mengatur Referer ke URL yang sama (bisa juga ke halaman fiktif di domain target)
-        "Origin": targetUrlOrigin, // Mengatur Origin ke origin dari URL target
-        // Header lain dari permintaan klien asli bisa diteruskan di sini oleh proxy jika relevan dan aman
-      },
-      body: JSON.stringify(payload)
-    });
-
-    console.log(`[postDataToApi] Menerima respons dengan status: ${targetResponse.status}. Mengembalikan Response.`);
-
-    // Mengembalikan objek Response untuk diproses oleh caller (kode proxy di deno.ts)
-    return targetResponse;
-
-  } catch (error: any) {
-    // Menangani error jaringan atau error lain yang mencegah fetch berhasil sama sekali
-    console.error(`[postDataToApi ERROR] Error saat melakukan fetch ke '${initialTargetUrl}' untuk ID '${id}':`, error);
-    // Melemparkan error baru dengan pesan yang jelas jika fetch gagal total
-    // Caller (handler Deno) akan menangkap ini dan mengembalikan respons error 500 ke klien
-    throw new Error(`[postDataToApi ERROR] Gagal terhubung atau melakukan fetch ke target untuk ID '${id}': ${error.message}`);
-  }
+// Definisikan interface untuk opsi konfigurasi proksi
+interface ProxyOptions {
+    port: number; // Port tempat proksi akan mendengarkan
+    targetUrl: string; // URL target yang akan diproksi
 }
 
-// File ini tidak menjalankan server, hanya mengekspor fungsi.
+/**
+ * Memulai server proksi CORS Deno.
+ *
+ * @param options - Objek konfigurasi yang berisi port dan targetUrl.
+ * @returns Promise yang me-resolve dengan instance Server setelah server mulai.
+ */
+export async function getvid(options: ProxyOptions): Promise<Server> {
+    const { port, targetUrl } = options;
+
+    console.log(`[Proxy] Memulai proksi CORS Deno di http://localhost:${port}`);
+    console.log(`[Proxy] Memproksi permintaan ke: ${targetUrl}`);
+
+    // Handler untuk setiap permintaan masuk ke server proksi
+    const handler = async (request: Request): Promise<Response> => {
+        // Tangani permintaan pre-flight OPTIONS untuk CORS
+        if (request.method === "OPTIONS") {
+            // console.log("[Proxy] Menangani permintaan OPTIONS (pre-flight CORS)"); // Opsional untuk debugging
+            return new Response(null, {
+                status: 204, // No Content untuk permintaan OPTIONS yang berhasil
+                headers: {
+                    "Access-Control-Allow-Origin": "*", // Izinkan permintaan dari asal manapun
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", // Metode yang diizinkan
+                    "Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") || "*", // Izinkan header yang diminta oleh klien atau semua
+                    "Access-Control-Max-Age": "86400", // Cache pre-flight request selama 24 jam
+                },
+            });
+        }
+
+        // Tangani permintaan lainnya (GET, POST, dll.)
+        try {
+            // console.log(`[Proxy] Meneruskan ${request.method} ${request.url} ke target`); // Opsional untuk debugging
+            // Buat permintaan baru untuk URL target
+            // Salin metode, header, dan body dari permintaan asli klien
+            const targetRequest = new Request(targetUrl, {
+                method: request.method,
+                headers: request.headers,
+                body: request.body, // Body akan null untuk GET/HEAD
+                redirect: 'follow', // Secara default Deno akan mengikuti redirect
+            });
+
+            // Kirim permintaan ke URL target dan tunggu responsnya
+            const targetResponse = await fetch(targetRequest);
+            // console.log(`[Proxy] Menerima respons dari target dengan status: ${targetResponse.status}`); // Opsional untuk debugging
+
+            // Buat respons baru untuk dikirim kembali ke klien
+            // Salin body, status, dan statusText dari respons target
+            const clientResponse = new Response(targetResponse.body, {
+                status: targetResponse.status,
+                statusText: targetResponse.statusText,
+                headers: new Headers(targetResponse.headers), // Salin semua header dari respons target
+            });
+
+            // TAMBAHKAN/TIMPA HEADER CORS PENTING
+            // Ini adalah bagian kunci yang membuat proksi ini berfungsi sebagai proksi CORS
+            clientResponse.headers.set("Access-Control-Allow-Origin", "*"); // Mengizinkan akses dari domain manapun
+
+            // Pastikan header Vary mencakup 'Origin' untuk penanganan cache yang benar pada respons CORS
+            const vary = clientResponse.headers.get('Vary');
+            if (vary) {
+                if (!vary.toLowerCase().includes('origin')) {
+                     clientResponse.headers.set('Vary', `${vary}, Origin`);
+                }
+            } else {
+                clientResponse.headers.set('Vary', 'Origin');
+            }
+
+            // Hapus header hop-by-hop yang mungkin disalin tapi tidak seharusnya diteruskan (opsional tapi baik)
+            // Deno fetch umumnya sudah menangani ini, tapi eksplisit lebih aman.
+            const hopByHopHeaders = [
+                'Connection', 'Keep-Alive', 'Proxy-Authenticate', 'Proxy-Authorization',
+                'Te', 'Trailers', 'Transfer-Encoding', 'Upgrade'
+            ];
+             hopByHopHeaders.forEach(header => {
+                if (clientResponse.headers.has(header)) {
+                   clientResponse.headers.delete(header);
+                }
+            });
+
+
+            // console.log("[Proxy] Mengirim respons kembali ke klien dengan header CORS"); // Opsional untuk debugging
+            return clientResponse;
+
+        } catch (error) {
+            console.error("[Proxy] Terjadi kesalahan saat permintaan proksi:", error);
+            // Berikan respons error jika terjadi masalah saat mengambil data dari target
+            return new Response(`Proxy error: ${error.message}`, { status: 500 });
+        }
+    };
+
+    // Jalankan server Deno menggunakan handler yang telah dibuat
+    // Deno.serve mengembalikan Promise<Server> yang me-resolve saat server siap
+    const server = await serve(handler, { port });
+
+    // Mengembalikan instance server agar bisa dikelola oleh pemanggil (misal: dihentikan)
+    return server;
+}
+
