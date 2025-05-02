@@ -148,7 +148,7 @@ async function handler(req: Request): Promise<Response> {
 
     if (url.pathname.startsWith("/movie")) {
         prefix = "/movie";
-        targetBaseUrl = "https://tv4.lk21official.cc";
+        targetBaseUrl = "https://lk21.film";
     } else if (url.pathname.startsWith("/anime")) {
         prefix = "/anime";
         targetBaseUrl = "https://ww1.anoboy.app";
