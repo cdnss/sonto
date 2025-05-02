@@ -46,7 +46,7 @@ function runIframeManipulation() {
                         if (videoId) {
                             // Buat URL API menggunakan id yang didapat
                             // Menggunakan '?id=' sesuai standar parameter URL
-                            var apiUrl = 'https://anoboy.deno.dev/' + videoId;
+                            var apiUrl = '/api.php?id=' + videoId;
 
                             // Lakukan panggilan AJAX ke API
                             $.ajax({
