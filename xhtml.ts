@@ -1,4 +1,4 @@
-import * as cheerio from 'npm:cheerio'; // Impor Cheerio dari npm
+import * as cheerio from "https://esm.sh/cheerio@1.0.0-rc.12";
 import { jq } from "./jq.ts";
 /**
  * Fungsi untuk memproses HTML menggunakan Cheerio dan mengubah link.
