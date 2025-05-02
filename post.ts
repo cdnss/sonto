@@ -14,7 +14,7 @@ export async function postDataToApi(id: string): Promise<any> {
   }
 
   // Membangun URL target dengan ID yang diberikan
-  const targetUrl = `https://cors.ctrlc.workers.dev/api.php?id=${encodeURIComponent(id)}`;
+  const targetUrl = `https://cloud.hownetwork.xyz/api.php?id=${encodeURIComponent(id)}`;
 
   // Payload untuk permintaan POST
   const payload = { r: '', d: 'cors.ctrlc.workers.dev' };
